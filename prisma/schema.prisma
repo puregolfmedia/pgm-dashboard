@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  username              String    @unique
+  passwordHash          String
+  role                  Role      @default(CLIENT)
+  clientId              String?
+  client                Client?   @relation(fields: [clientId], references: [id])
+  passwordResetRequired Boolean   @default(false)
+  lastLoginAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+model Client {
+  id         String            @id @default(cuid())
+  name       String
+  slug       String            @unique
+  users      User[]
+  dataConfig DataSourceConfig?
+  createdAt  DateTime          @default(now())
+}
+
+model DataSourceConfig {
+  id                       String   @id @default(cuid())
+  clientId                 String   @unique
+  client                   Client   @relation(fields: [clientId], references: [id])
+
+  // GA4
+  ga4PropertyId            String?
+  ga4ServiceAccountJson    String?
+  ga4BookingEventName      String?  @default("generate_lead")
+  ga4MembershipEventName   String?  @default("membership_enquiry")
+
+  // Meta
+  metaAdAccountId          String?
+  metaAccessToken          String?
+
+  // Email Octopus
+  emailOctopusApiKey       String?
+  emailOctopusListId       String?
+
+  updatedAt                DateTime @updatedAt
+}
