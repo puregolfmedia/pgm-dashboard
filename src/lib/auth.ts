@@ -17,7 +17,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!credentials?.username || !credentials?.password) return null
 
         const username = credentials.username as string
-        const { allowed, retriesLeft } = checkLoginRateLimit(username)
+        const { allowed } = checkLoginRateLimit(username)
 
         if (!allowed) {
           throw new Error('Too many failed attempts. Try again in 15 minutes.')

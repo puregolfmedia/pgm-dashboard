@@ -36,7 +36,7 @@ export async function fetchGA4Overview(
 
   const fmt = (d: Date) => d.toISOString().split('T')[0]
 
-  const [response] = await client.runReport({
+  await client.runReport({
     property: `properties/${propertyId}`,
     dateRanges: [
       { startDate: fmt(midpoint), endDate: fmt(end), name: 'current' },

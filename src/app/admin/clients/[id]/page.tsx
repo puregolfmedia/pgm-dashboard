@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, FormEvent } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import DashboardHeader from '@/components/layout/DashboardHeader'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -9,7 +9,6 @@ import Link from 'next/link'
 
 export default function EditClientPage() {
   const { id } = useParams<{ id: string }>()
-  const router = useRouter()
 
   const [client, setClient] = useState<any>(null)
   const [loading, setLoading] = useState(true)

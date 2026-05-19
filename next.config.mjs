@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: false },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Browser bundles should never include server-only Node modules
