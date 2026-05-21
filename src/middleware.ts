@@ -15,12 +15,14 @@ export default auth((req) => {
   const isChangePassword = nextUrl.pathname === '/change-password'
   const isDashboard = nextUrl.pathname.startsWith('/dashboard')
   const isAdmin = nextUrl.pathname.startsWith('/admin')
+  const isCrm = nextUrl.pathname.startsWith('/crm')
   const isApiDashboard = nextUrl.pathname.startsWith('/api/dashboard')
   const isApiAdmin = nextUrl.pathname.startsWith('/api/admin')
+  const isApiCrm = nextUrl.pathname.startsWith('/api/crm')
   const isApiChangePassword = nextUrl.pathname === '/api/auth/change-password'
 
   // Unauthenticated — redirect to login
-  if (!isLoggedIn && (isDashboard || isAdmin || isApiDashboard || isApiAdmin || isChangePassword)) {
+  if (!isLoggedIn && (isDashboard || isAdmin || isCrm || isApiDashboard || isApiAdmin || isApiCrm || isChangePassword)) {
     return NextResponse.redirect(new URL('/login', nextUrl))
   }
 
@@ -35,7 +37,7 @@ export default auth((req) => {
   }
 
   // Admin-only routes
-  if ((isAdmin || isApiAdmin) && role !== 'ADMIN') {
+  if ((isAdmin || isCrm || isApiAdmin || isApiCrm) && role !== 'ADMIN') {
     return NextResponse.redirect(new URL('/dashboard', nextUrl))
   }
 

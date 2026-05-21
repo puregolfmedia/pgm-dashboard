@@ -54,6 +54,20 @@ function NavContent({ isAdmin, pathname, onNav }: { isAdmin?: boolean; pathname:
         {isAdmin && (
           <>
             <p className="text-pgm-silver/50 text-xs uppercase tracking-widest px-3 pb-2 pt-5">
+              CRM
+            </p>
+            <Link
+              href="/crm"
+              onClick={onNav}
+              className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
+                pathname.startsWith('/crm')
+                  ? 'bg-pgm-green/15 text-pgm-green border-l-2 border-pgm-green pl-[10px]'
+                  : 'text-pgm-silver hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Contacts
+            </Link>
+            <p className="text-pgm-silver/50 text-xs uppercase tracking-widest px-3 pb-2 pt-5">
               Admin
             </p>
             <Link

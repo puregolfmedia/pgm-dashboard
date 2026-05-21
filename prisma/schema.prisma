@@ -34,6 +34,87 @@ model Client {
   createdAt  DateTime          @default(now())
 }
 
+// ─── CRM ────────────────────────────────────────────────────────────────────
+
+model Contact {
+  id              String          @id @default(cuid())
+  firstName       String
+  lastName        String
+  linkedinUrl     String?         @unique
+  email           String?
+  company         String?
+  position        String?
+  connectedOn     DateTime?
+
+  titleTier       TitleTier       @default(OTHER)
+  industrySegment IndustrySegment @default(UNKNOWN)
+  outreachStatus  OutreachStatus  @default(NOT_STARTED)
+  priorityScore   Int             @default(0)
+
+  lastContactedAt DateTime?
+  nextFollowUpAt  DateTime?
+
+  notes           ContactNote[]
+  outreachLogs    OutreachLog[]
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model ContactNote {
+  id        String   @id @default(cuid())
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model OutreachLog {
+  id        String       @id @default(cuid())
+  contactId String
+  contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  type      OutreachType
+  notes     String?
+  sentAt    DateTime     @default(now())
+}
+
+enum TitleTier {
+  TIER_1
+  TIER_2
+  TIER_3
+  OTHER
+}
+
+enum IndustrySegment {
+  PRIVATE_MEMBERS_CLUB
+  RESORT_GOLF
+  MUNICIPAL_PUBLIC
+  GOLF_ACADEMY
+  GOLF_RETAIL
+  GOLF_MEDIA
+  SUPPLIER_VENDOR
+  ASSOCIATION
+  UNKNOWN
+}
+
+enum OutreachStatus {
+  NOT_STARTED
+  MESSAGED
+  REPLIED
+  MEETING_BOOKED
+  NOT_INTERESTED
+  NO_RESPONSE
+}
+
+enum OutreachType {
+  LINKEDIN_MESSAGE
+  EMAIL
+  CALL
+  MEETING
+}
+
+// ─── Data Sources ────────────────────────────────────────────────────────────
+
 model DataSourceConfig {
   id                       String   @id @default(cuid())
   clientId                 String   @unique
