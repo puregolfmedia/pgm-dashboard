@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Contact, ContactNote, OutreachLog } from '@/generated/prisma/client'
 import { OutreachStatus, OutreachType, TitleTier, IndustrySegment, CountryRegion } from '@/generated/prisma/enums'
+import { UK_COUNTIES } from '@/lib/crm/location'
+
+const UK_COUNTY_NAMES = new Set(UK_COUNTIES.filter(c => !c.startsWith('—')))
 
 type FullContact = Contact & { notes: ContactNote[]; outreachLogs: OutreachLog[] }
 
@@ -60,6 +63,7 @@ export default function ContactDetail({ contact }: { contact: FullContact }) {
   const [statusLoading, setStatusLoading] = useState(false)
   const [currentStatus, setCurrentStatus] = useState(contact.outreachStatus)
   const [currentRegion, setCurrentRegion] = useState<CountryRegion>((contact as any).countryRegion ?? CountryRegion.UNKNOWN)
+  const [currentCounty, setCurrentCounty] = useState<string | null>((contact as any).country ?? null)
 
   const logOutreach = async () => {
     setOutreachLoading(true)
@@ -86,13 +90,25 @@ export default function ContactDetail({ contact }: { contact: FullContact }) {
     router.refresh()
   }
 
-  const updateRegion = async (newRegion: CountryRegion) => {
-    setCurrentRegion(newRegion)
-    await fetch(`/api/crm/contacts/${contact.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ countryRegion: newRegion }),
-    })
+  const handleLocationChange = async (value: string) => {
+    const isCounty = UK_COUNTY_NAMES.has(value)
+    if (isCounty) {
+      setCurrentRegion(CountryRegion.UK)
+      setCurrentCounty(value)
+      await fetch(`/api/crm/contacts/${contact.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ countryRegion: CountryRegion.UK, country: value }),
+      })
+    } else {
+      setCurrentRegion(value as CountryRegion)
+      setCurrentCounty(null)
+      await fetch(`/api/crm/contacts/${contact.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ countryRegion: value, country: null }),
+      })
+    }
     router.refresh()
   }
 
@@ -147,26 +163,23 @@ export default function ContactDetail({ contact }: { contact: FullContact }) {
             {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
           <select
-            value={(contact as any).country?.toLowerCase().includes('essex') ? 'ESSEX_UK' : currentRegion}
-            onChange={async (e) => {
-              if (e.target.value === 'ESSEX_UK') {
-                setCurrentRegion(CountryRegion.UK)
-                await fetch(`/api/crm/contacts/${contact.id}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ countryRegion: CountryRegion.UK, country: 'Essex' }),
-                })
-                router.refresh()
-              } else {
-                updateRegion(e.target.value as CountryRegion)
-              }
-            }}
+            value={currentRegion === CountryRegion.UK && currentCounty ? currentCounty : currentRegion}
+            onChange={(e) => handleLocationChange(e.target.value)}
             className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
           >
-            <option value="ESSEX_UK">📍 Essex (UK)</option>
-            {(Object.entries(REGION_LABEL) as [CountryRegion, string][]).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
+            {UK_COUNTIES.map((c) =>
+              c.startsWith('—') ? (
+                <option key={c} disabled>{c}</option>
+              ) : (
+                <option key={c} value={c}>{c}</option>
+              )
+            )}
+            <option disabled>── Other regions ──</option>
+            {(Object.entries(REGION_LABEL) as [CountryRegion, string][])
+              .filter(([k]) => k !== CountryRegion.UK)
+              .map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
           </select>
         </div>
       </div>

@@ -5,6 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Contact } from '@/generated/prisma/client'
 import { OutreachStatus, TitleTier, IndustrySegment, CountryRegion } from '@/generated/prisma/enums'
+import { UK_COUNTIES } from '@/lib/crm/location'
+
+// Counties (real entries only — no section-header dividers)
+const UK_COUNTY_NAMES = new Set(UK_COUNTIES.filter(c => !c.startsWith('—')))
 
 // ── Labels & colours ──────────────────────────────────────────────────────────
 
@@ -205,8 +209,8 @@ function PriorityQueue({ contacts, onSelect, onRefresh }: { contacts: Contact[];
       {visible.map((c, i) => {
         const isLoading = loading.has(c.id)
         const region = (c as any).countryRegion as CountryRegion
-        const country = (c as any).country as string | null
-        const isEssex = region === CountryRegion.UK && country?.toLowerCase().includes('essex')
+        const county = (c as any).country as string | null
+        const hasCounty = region === CountryRegion.UK && !!county
         return (
           <div
             key={c.id}
@@ -227,8 +231,8 @@ function PriorityQueue({ contacts, onSelect, onRefresh }: { contacts: Contact[];
                 <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TIER_COLOUR[c.titleTier as TitleTier]}`}>
                   {TIER_LABEL[c.titleTier as TitleTier]}
                 </span>
-                {isEssex && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-pgm-green/20 text-pgm-green">📍 Essex</span>}
-                {region === CountryRegion.UK && !isEssex && <span className="text-[11px] text-gray-400">🇬🇧</span>}
+                {hasCounty && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-pgm-green/20 text-pgm-green">📍 {county}</span>}
+                {region === CountryRegion.UK && !hasCounty && <span className="text-[11px] text-gray-400">🇬🇧</span>}
               </div>
               <div className="text-xs text-gray-500 mt-0.5 truncate">
                 {c.position}{c.company ? ` · ${c.company}` : ''}
@@ -349,13 +353,21 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkStatus, setBulkStatus] = useState<OutreachStatus>(OutreachStatus.MESSAGED)
   const [bulkMode, setBulkMode] = useState<'status' | 'location'>('status')
-  const [bulkRegion, setBulkRegion] = useState<CountryRegion>(CountryRegion.UK)
+  // bulkLocationValue is either a UK county name (e.g. 'Essex') or a CountryRegion enum string
+  const [bulkLocationValue, setBulkLocationValue] = useState<string>('Essex')
 
   const filtered = contacts.filter((c) => {
     if (filterTier !== 'ALL' && c.titleTier !== filterTier) return false
     if (filterStatus !== 'ALL' && c.outreachStatus !== filterStatus) return false
     if (filterSegment !== 'ALL' && c.industrySegment !== filterSegment) return false
-    if (filterRegion !== 'ALL' && (c as any).countryRegion !== filterRegion) return false
+    if (filterRegion !== 'ALL') {
+      // If the filter value is a UK county name, match against the country field
+      if (UK_COUNTY_NAMES.has(filterRegion)) {
+        if ((c as any).country !== filterRegion) return false
+      } else {
+        if ((c as any).countryRegion !== filterRegion) return false
+      }
+    }
     if (search) {
       const q = search.toLowerCase()
       return (
@@ -379,12 +391,12 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
   const bulkUpdate = async () => {
     if (selected.size === 0) return
     setBulkLoading(true)
-    const isEssex = (bulkRegion as string) === 'ESSEX_UK'
+    const isCounty = UK_COUNTY_NAMES.has(bulkLocationValue)
     const payload = bulkMode === 'status'
       ? { ids: Array.from(selected), outreachStatus: bulkStatus }
-      : isEssex
-        ? { ids: Array.from(selected), countryRegion: CountryRegion.UK, country: 'Essex' }
-        : { ids: Array.from(selected), countryRegion: bulkRegion }
+      : isCounty
+        ? { ids: Array.from(selected), countryRegion: CountryRegion.UK, country: bulkLocationValue }
+        : { ids: Array.from(selected), countryRegion: bulkLocationValue }
     await fetch('/api/crm/contacts/bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -436,7 +448,18 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
           className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
         >
           <option value="ALL">All locations</option>
-          {REGION_OPTIONS.map((k) => <option key={k} value={k}>{REGION_LABEL[k]}</option>)}
+          <option disabled>── UK counties ──</option>
+          {UK_COUNTIES.map((c) =>
+            c.startsWith('—') ? (
+              <option key={c} disabled>{c}</option>
+            ) : (
+              <option key={c} value={c}>{c}</option>
+            )
+          )}
+          <option disabled>── Regions ──</option>
+          {REGION_OPTIONS.filter(r => r !== CountryRegion.UK).map((k) => (
+            <option key={k} value={k}>{REGION_LABEL[k]}</option>
+          ))}
         </select>
         {filtered.length !== contacts.length && (
           <span className="px-3 py-2 text-xs text-gray-500 self-center">
@@ -469,12 +492,20 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
                 ))}
               </select>
             ) : (
-              <select value={bulkRegion} onChange={(e) => setBulkRegion(e.target.value as CountryRegion)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-pgm-ink focus:outline-none">
-                <option value="ESSEX_UK">📍 Essex (UK)</option>
-                {REGION_OPTIONS.filter(r => r !== CountryRegion.UNKNOWN).map((r) => (
+              <select value={bulkLocationValue} onChange={(e) => setBulkLocationValue(e.target.value)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-pgm-ink focus:outline-none max-w-[200px]">
+                {UK_COUNTIES.map((c) =>
+                  c.startsWith('—') ? (
+                    <option key={c} disabled>{c}</option>
+                  ) : (
+                    <option key={c} value={c}>{c}</option>
+                  )
+                )}
+                <option disabled>── Other regions ──</option>
+                {REGION_OPTIONS.filter(r => r !== CountryRegion.UK && r !== CountryRegion.UNKNOWN).map((r) => (
                   <option key={r} value={r}>{REGION_LABEL[r]}</option>
                 ))}
+                <option value={CountryRegion.UNKNOWN}>— Unknown</option>
               </select>
             )}
             <button onClick={bulkUpdate} disabled={bulkLoading}
@@ -550,7 +581,11 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
                     <td className="px-4 py-3 text-gray-600 truncate max-w-[160px] cursor-pointer" onClick={() => onSelect(c.id)}>{c.company ?? '—'}</td>
                     <td className="px-4 py-3 cursor-pointer" onClick={() => onSelect(c.id)}>
                       {(c as any).countryRegion && (c as any).countryRegion !== 'UNKNOWN' ? (
-                        <span className="text-sm">{REGION_LABEL[(c as any).countryRegion as CountryRegion]}</span>
+                        (c as any).countryRegion === 'UK' && (c as any).country ? (
+                          <span className="text-sm text-gray-700">🇬🇧 {(c as any).country}</span>
+                        ) : (
+                          <span className="text-sm">{REGION_LABEL[(c as any).countryRegion as CountryRegion]}</span>
+                        )
                       ) : (
                         <span className="text-xs text-gray-300">—</span>
                       )}

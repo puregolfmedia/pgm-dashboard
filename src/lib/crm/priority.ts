@@ -1,8 +1,5 @@
 import { TitleTier, IndustrySegment, OutreachStatus, CountryRegion } from '@/generated/prisma/client'
-import { COUNTRY_REGION_BONUS } from './location'
-
-// Local-area bonus — stacks on top of COUNTRY_REGION_BONUS
-const LOCAL_AREA_BONUS = 40 // Essex-first strategy
+import { COUNTRY_REGION_BONUS, getCountyBonus } from './location'
 
 const TIER_BASE: Record<TitleTier, number> = {
   TIER_1: 100,
@@ -39,9 +36,7 @@ export function calcPriorityScore({
   let score = TIER_BASE[titleTier]
   score += INDUSTRY_BONUS[industrySegment] ?? 0
   score += COUNTRY_REGION_BONUS[countryRegion ?? CountryRegion.UNKNOWN] ?? 0
-  if (countryRegion === CountryRegion.UK && country?.toLowerCase().includes('essex')) {
-    score += LOCAL_AREA_BONUS
-  }
+  score += getCountyBonus(country)
 
   if (outreachStatus === OutreachStatus.NOT_STARTED) {
     score += 20
