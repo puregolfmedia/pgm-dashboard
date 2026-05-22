@@ -37,9 +37,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const titleTier = body.titleTier ?? existing.titleTier
   const industrySegment = body.industrySegment ?? existing.industrySegment
   const outreachStatus = body.outreachStatus ?? existing.outreachStatus
+  const countryRegion = body.countryRegion ?? existing.countryRegion
+  const country = body.country !== undefined ? body.country : existing.country
   const lastContactedAt = body.lastContactedAt ? new Date(body.lastContactedAt) : existing.lastContactedAt
 
-  const priorityScore = calcPriorityScore({ titleTier, industrySegment, outreachStatus, lastContactedAt })
+  const priorityScore = calcPriorityScore({ titleTier, industrySegment, outreachStatus, countryRegion, country, lastContactedAt })
 
   const updated = await prisma.contact.update({
     where: { id },

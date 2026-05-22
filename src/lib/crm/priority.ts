@@ -1,4 +1,8 @@
-import { TitleTier, IndustrySegment, OutreachStatus } from '@/generated/prisma/client'
+import { TitleTier, IndustrySegment, OutreachStatus, CountryRegion } from '@/generated/prisma/client'
+import { COUNTRY_REGION_BONUS } from './location'
+
+// Local-area bonus — stacks on top of COUNTRY_REGION_BONUS
+const LOCAL_AREA_BONUS = 40 // Essex-first strategy
 
 const TIER_BASE: Record<TitleTier, number> = {
   TIER_1: 100,
@@ -17,11 +21,15 @@ export function calcPriorityScore({
   titleTier,
   industrySegment,
   outreachStatus,
+  countryRegion,
+  country,
   lastContactedAt,
 }: {
   titleTier: TitleTier
   industrySegment: IndustrySegment
   outreachStatus: OutreachStatus
+  countryRegion?: CountryRegion | null
+  country?: string | null
   lastContactedAt: Date | null
 }): number {
   if (outreachStatus === OutreachStatus.NOT_INTERESTED || outreachStatus === OutreachStatus.MEETING_BOOKED) {
@@ -30,11 +38,14 @@ export function calcPriorityScore({
 
   let score = TIER_BASE[titleTier]
   score += INDUSTRY_BONUS[industrySegment] ?? 0
+  score += COUNTRY_REGION_BONUS[countryRegion ?? CountryRegion.UNKNOWN] ?? 0
+  if (countryRegion === CountryRegion.UK && country?.toLowerCase().includes('essex')) {
+    score += LOCAL_AREA_BONUS
+  }
 
   if (outreachStatus === OutreachStatus.NOT_STARTED) {
     score += 20
   } else if (outreachStatus === OutreachStatus.MESSAGED || outreachStatus === OutreachStatus.NO_RESPONSE) {
-    // Follow-up overdue: > 7 days since last contact
     if (lastContactedAt) {
       const daysSince = (Date.now() - lastContactedAt.getTime()) / 86_400_000
       if (daysSince > 7) score += 30

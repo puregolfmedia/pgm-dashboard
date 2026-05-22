@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Contact, ContactNote, OutreachLog } from '@/generated/prisma/client'
-import { OutreachStatus, OutreachType, TitleTier, IndustrySegment } from '@/generated/prisma/enums'
+import { OutreachStatus, OutreachType, TitleTier, IndustrySegment, CountryRegion } from '@/generated/prisma/enums'
 
 type FullContact = Contact & { notes: ContactNote[]; outreachLogs: OutreachLog[] }
 
@@ -40,30 +40,26 @@ const SEGMENT_LABEL: Record<IndustrySegment, string> = {
   ASSOCIATION: 'Association',
   UNKNOWN: 'Unknown',
 }
+const REGION_LABEL: Record<CountryRegion, string> = {
+  UK: '🇬🇧 United Kingdom',
+  IRELAND: '🇮🇪 Ireland',
+  EUROPE: '🌍 Europe',
+  NORTH_AMERICA: '🌎 North America',
+  AUSTRALIA_NZ: '🦘 Australia / NZ',
+  ASIA: '🌏 Asia',
+  REST_OF_WORLD: '🌐 Other',
+  UNKNOWN: '— Unknown',
+}
 
 export default function ContactDetail({ contact }: { contact: FullContact }) {
   const router = useRouter()
-  const [noteText, setNoteText] = useState('')
-  const [noteLoading, setNoteLoading] = useState(false)
   const [outreachType, setOutreachType] = useState<OutreachType>(OutreachType.LINKEDIN_MESSAGE)
   const [outreachStatus, setOutreachStatus] = useState<OutreachStatus>(OutreachStatus.MESSAGED)
   const [outreachNotes, setOutreachNotes] = useState('')
   const [outreachLoading, setOutreachLoading] = useState(false)
   const [statusLoading, setStatusLoading] = useState(false)
   const [currentStatus, setCurrentStatus] = useState(contact.outreachStatus)
-
-  const addNote = async () => {
-    if (!noteText.trim()) return
-    setNoteLoading(true)
-    await fetch(`/api/crm/contacts/${contact.id}/notes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body: noteText }),
-    })
-    setNoteText('')
-    setNoteLoading(false)
-    router.refresh()
-  }
+  const [currentRegion, setCurrentRegion] = useState<CountryRegion>((contact as any).countryRegion ?? CountryRegion.UNKNOWN)
 
   const logOutreach = async () => {
     setOutreachLoading(true)
@@ -87,6 +83,16 @@ export default function ContactDetail({ contact }: { contact: FullContact }) {
     })
     setCurrentStatus(newStatus)
     setStatusLoading(false)
+    router.refresh()
+  }
+
+  const updateRegion = async (newRegion: CountryRegion) => {
+    setCurrentRegion(newRegion)
+    await fetch(`/api/crm/contacts/${contact.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ countryRegion: newRegion }),
+    })
     router.refresh()
   }
 
@@ -130,8 +136,8 @@ export default function ContactDetail({ contact }: { contact: FullContact }) {
             {contact.lastContactedAt && <span>Last contact {fmtDate(contact.lastContactedAt)}</span>}
           </div>
         </div>
-        {/* Quick status */}
-        <div className="shrink-0">
+        {/* Quick controls */}
+        <div className="shrink-0 flex flex-col gap-2">
           <select
             value={currentStatus}
             onChange={(e) => updateStatus(e.target.value as OutreachStatus)}
@@ -140,86 +146,77 @@ export default function ContactDetail({ contact }: { contact: FullContact }) {
           >
             {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
+          <select
+            value={(contact as any).country?.toLowerCase().includes('essex') ? 'ESSEX_UK' : currentRegion}
+            onChange={async (e) => {
+              if (e.target.value === 'ESSEX_UK') {
+                setCurrentRegion(CountryRegion.UK)
+                await fetch(`/api/crm/contacts/${contact.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ countryRegion: CountryRegion.UK, country: 'Essex' }),
+                })
+                router.refresh()
+              } else {
+                updateRegion(e.target.value as CountryRegion)
+              }
+            }}
+            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
+          >
+            <option value="ESSEX_UK">📍 Essex (UK)</option>
+            {(Object.entries(REGION_LABEL) as [CountryRegion, string][]).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Log outreach */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-pgm-ink">Log outreach</h2>
-          <div className="flex gap-2">
-            <select
-              value={outreachType}
-              onChange={(e) => setOutreachType(e.target.value as OutreachType)}
-              className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
-            >
-              {Object.entries(OUTREACH_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-            <select
-              value={outreachStatus}
-              onChange={(e) => setOutreachStatus(e.target.value as OutreachStatus)}
-              className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
-            >
-              {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </div>
-          <textarea
-            value={outreachNotes}
-            onChange={(e) => setOutreachNotes(e.target.value)}
-            placeholder="Notes (optional)…"
-            rows={2}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
-          />
-          <button
-            onClick={logOutreach}
-            disabled={outreachLoading}
-            className="w-full px-4 py-2.5 bg-pgm-green hover:bg-pgm-green/90 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60"
+      {/* Log outreach */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+        <h2 className="text-sm font-semibold text-pgm-ink">Log outreach</h2>
+        <div className="flex gap-2">
+          <select
+            value={outreachType}
+            onChange={(e) => setOutreachType(e.target.value as OutreachType)}
+            className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
           >
-            {outreachLoading ? 'Saving…' : 'Log outreach'}
-          </button>
-
-          {/* Outreach history */}
-          {contact.outreachLogs.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-gray-100">
-              {contact.outreachLogs.map((log) => (
-                <div key={log.id} className="text-xs text-gray-500">
-                  <span className="font-medium text-gray-700">{OUTREACH_TYPE_LABEL[log.type]}</span>
-                  {' · '}{fmtDate(log.sentAt)}
-                  {log.notes && <p className="text-gray-400 mt-0.5">{log.notes}</p>}
-                </div>
-              ))}
-            </div>
-          )}
+            {Object.entries(OUTREACH_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <select
+            value={outreachStatus}
+            onChange={(e) => setOutreachStatus(e.target.value as OutreachStatus)}
+            className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
+          >
+            {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
         </div>
+        <textarea
+          value={outreachNotes}
+          onChange={(e) => setOutreachNotes(e.target.value)}
+          placeholder="Notes (optional)…"
+          rows={2}
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
+        />
+        <button
+          onClick={logOutreach}
+          disabled={outreachLoading}
+          className="w-full px-4 py-2.5 bg-pgm-green hover:bg-pgm-green/90 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60"
+        >
+          {outreachLoading ? 'Saving…' : 'Log outreach'}
+        </button>
 
-        {/* Notes */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-pgm-ink">Notes</h2>
-          <textarea
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            placeholder="Add a note…"
-            rows={3}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
-          />
-          <button
-            onClick={addNote}
-            disabled={noteLoading || !noteText.trim()}
-            className="px-4 py-2 bg-pgm-green hover:bg-pgm-green/90 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60"
-          >
-            {noteLoading ? 'Saving…' : 'Add note'}
-          </button>
-
-          <div className="space-y-3 pt-2 border-t border-gray-100">
-            {contact.notes.length === 0 && <p className="text-xs text-gray-400">No notes yet.</p>}
-            {contact.notes.map((note) => (
-              <div key={note.id} className="text-sm">
-                <p className="text-gray-700">{note.body}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{fmtDate(note.createdAt)}</p>
+        {/* Outreach history */}
+        {contact.outreachLogs.length > 0 && (
+          <div className="space-y-2 pt-2 border-t border-gray-100">
+            {contact.outreachLogs.map((log) => (
+              <div key={log.id} className="text-xs text-gray-500">
+                <span className="font-medium text-gray-700">{OUTREACH_TYPE_LABEL[log.type]}</span>
+                {' · '}{fmtDate(log.sentAt)}
+                {log.notes && <p className="text-gray-400 mt-0.5">{log.notes}</p>}
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

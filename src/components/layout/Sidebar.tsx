@@ -15,7 +15,7 @@ const navItems = [
   { label: 'UTMs',        href: '/dashboard/utms' },
 ]
 
-function NavContent({ isAdmin, pathname, onNav }: { isAdmin?: boolean; pathname: string; onNav?: () => void }) {
+function NavContent({ isAdmin, isCrmOwner, pathname, onNav }: { isAdmin?: boolean; isCrmOwner?: boolean; pathname: string; onNav?: () => void }) {
   return (
     <>
       {/* Logo */}
@@ -51,7 +51,7 @@ function NavContent({ isAdmin, pathname, onNav }: { isAdmin?: boolean; pathname:
           )
         })}
 
-        {isAdmin && (
+        {isCrmOwner && (
           <>
             <p className="text-pgm-silver/50 text-xs uppercase tracking-widest px-3 pb-2 pt-5">
               CRM
@@ -67,6 +67,11 @@ function NavContent({ isAdmin, pathname, onNav }: { isAdmin?: boolean; pathname:
             >
               Contacts
             </Link>
+          </>
+        )}
+
+        {isAdmin && (
+          <>
             <p className="text-pgm-silver/50 text-xs uppercase tracking-widest px-3 pb-2 pt-5">
               Admin
             </p>
@@ -98,7 +103,7 @@ function NavContent({ isAdmin, pathname, onNav }: { isAdmin?: boolean; pathname:
   )
 }
 
-export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
+export default function Sidebar({ isAdmin, isCrmOwner }: { isAdmin?: boolean; isCrmOwner?: boolean }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
@@ -137,12 +142,12 @@ export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <NavContent isAdmin={isAdmin} pathname={pathname} onNav={() => setOpen(false)} />
+        <NavContent isAdmin={isAdmin} isCrmOwner={isCrmOwner} pathname={pathname} onNav={() => setOpen(false)} />
       </div>
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-56 shrink-0 bg-pgm-ink min-h-screen flex-col">
-        <NavContent isAdmin={isAdmin} pathname={pathname} />
+        <NavContent isAdmin={isAdmin} isCrmOwner={isCrmOwner} pathname={pathname} />
       </aside>
     </>
   )

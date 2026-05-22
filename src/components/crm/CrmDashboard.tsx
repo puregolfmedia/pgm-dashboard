@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Contact } from '@/generated/prisma/client'
-import { OutreachStatus, TitleTier, IndustrySegment } from '@/generated/prisma/enums'
+import { OutreachStatus, TitleTier, IndustrySegment, CountryRegion } from '@/generated/prisma/enums'
 
 // ── Labels & colours ──────────────────────────────────────────────────────────
 
@@ -47,6 +47,26 @@ const SEGMENT_LABEL: Record<IndustrySegment, string> = {
   ASSOCIATION: 'Association',
   UNKNOWN: '—',
 }
+const REGION_LABEL: Record<CountryRegion, string> = {
+  UK: '🇬🇧 UK',
+  IRELAND: '🇮🇪 Ireland',
+  EUROPE: '🌍 Europe',
+  NORTH_AMERICA: '🌎 N. America',
+  AUSTRALIA_NZ: '🦘 Aus / NZ',
+  ASIA: '🌏 Asia',
+  REST_OF_WORLD: '🌐 Other',
+  UNKNOWN: '— Unknown',
+}
+const REGION_OPTIONS: CountryRegion[] = [
+  CountryRegion.UK,
+  CountryRegion.IRELAND,
+  CountryRegion.EUROPE,
+  CountryRegion.NORTH_AMERICA,
+  CountryRegion.AUSTRALIA_NZ,
+  CountryRegion.ASIA,
+  CountryRegion.REST_OF_WORLD,
+  CountryRegion.UNKNOWN,
+]
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -138,7 +158,7 @@ export default function CrmDashboard({ priorityQueue, followUpQueue, allContacts
 
       {/* Tab content */}
       {tab === 'priority' && (
-        <PriorityQueue contacts={priorityQueue} onSelect={(id) => router.push(`/crm/${id}`)} />
+        <PriorityQueue contacts={priorityQueue} onSelect={(id) => router.push(`/crm/${id}`)} onRefresh={() => router.refresh()} />
       )}
       {tab === 'followup' && (
         <FollowUpQueue contacts={followUpQueue} onSelect={(id) => router.push(`/crm/${id}`)} onRefresh={() => router.refresh()} />
@@ -152,46 +172,88 @@ export default function CrmDashboard({ priorityQueue, followUpQueue, allContacts
 
 // ── Priority queue ────────────────────────────────────────────────────────────
 
-function PriorityQueue({ contacts, onSelect }: { contacts: Contact[]; onSelect: (id: string) => void }) {
-  if (contacts.length === 0) {
+function PriorityQueue({ contacts, onSelect, onRefresh }: { contacts: Contact[]; onSelect: (id: string) => void; onRefresh: () => void }) {
+  const [done, setDone] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState<Set<string>>(new Set())
+
+  const markMessaged = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setLoading(prev => new Set(prev).add(id))
+    await fetch('/api/crm/contacts/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [id], outreachStatus: OutreachStatus.MESSAGED }),
+    })
+    setDone(prev => new Set(prev).add(id))
+    setLoading(prev => { const s = new Set(prev); s.delete(id); return s })
+    setTimeout(onRefresh, 600)
+  }
+
+  const visible = contacts.filter(c => !done.has(c.id))
+
+  if (visible.length === 0 && contacts.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400 text-sm">
         No priority contacts — great work, or try importing more connections.
       </div>
     )
   }
+
   return (
     <div className="space-y-2">
-      <p className="text-xs text-gray-400">Top Directors &amp; GMs you haven't contacted yet, ranked by priority score.</p>
-      {contacts.map((c, i) => (
-        <button
-          key={c.id}
-          onClick={() => onSelect(c.id)}
-          className="w-full text-left bg-white border border-gray-200 rounded-xl px-5 py-4 hover:border-pgm-green/40 hover:shadow-sm transition-all flex items-center gap-4"
-        >
-          <div className="w-6 text-center text-xs font-semibold text-gray-400 shrink-0">{i + 1}</div>
-          <div className="w-9 h-9 rounded-full bg-pgm-green/10 flex items-center justify-center shrink-0">
-            <span className="text-pgm-green text-xs font-semibold">{c.firstName[0]}{c.lastName[0]}</span>
+      <p className="text-xs text-gray-400">Top Directors &amp; GMs ranked by priority. Hit <strong>Messaged</strong> the moment you send — no need to open the contact.</p>
+      {visible.map((c, i) => {
+        const isLoading = loading.has(c.id)
+        const region = (c as any).countryRegion as CountryRegion
+        const country = (c as any).country as string | null
+        const isEssex = region === CountryRegion.UK && country?.toLowerCase().includes('essex')
+        return (
+          <div
+            key={c.id}
+            className="bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-pgm-green/30 transition-all flex items-center gap-3"
+          >
+            {/* Rank */}
+            <div className="w-5 text-center text-xs font-semibold text-gray-300 shrink-0">{i + 1}</div>
+
+            {/* Avatar — click to open detail */}
+            <button onClick={() => onSelect(c.id)} className="w-9 h-9 rounded-full bg-pgm-green/10 flex items-center justify-center shrink-0 hover:bg-pgm-green/20 transition-colors">
+              <span className="text-pgm-green text-xs font-semibold">{c.firstName[0]}{c.lastName[0]}</span>
+            </button>
+
+            {/* Info — click to open detail */}
+            <button onClick={() => onSelect(c.id)} className="flex-1 min-w-0 text-left">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-pgm-ink text-sm">{c.firstName} {c.lastName}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TIER_COLOUR[c.titleTier as TitleTier]}`}>
+                  {TIER_LABEL[c.titleTier as TitleTier]}
+                </span>
+                {isEssex && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-pgm-green/20 text-pgm-green">📍 Essex</span>}
+                {region === CountryRegion.UK && !isEssex && <span className="text-[11px] text-gray-400">🇬🇧</span>}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5 truncate">
+                {c.position}{c.company ? ` · ${c.company}` : ''}
+              </div>
+            </button>
+
+            {/* Score */}
+            <span className="text-[11px] text-gray-400 shrink-0 hidden sm:block">Score {c.priorityScore}</span>
+
+            {/* Quick action */}
+            <button
+              onClick={(e) => markMessaged(e, c.id)}
+              disabled={isLoading}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-pgm-green hover:bg-pgm-green/90 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-60 whitespace-nowrap"
+            >
+              {isLoading ? (
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+              )}
+              Messaged
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium text-pgm-ink text-sm">{c.firstName} {c.lastName}</span>
-              <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TIER_COLOUR[c.titleTier as TitleTier]}`}>
-                {TIER_LABEL[c.titleTier as TitleTier]}
-              </span>
-            </div>
-            <div className="text-xs text-gray-500 mt-0.5 truncate">
-              {c.position}{c.company ? ` · ${c.company}` : ''}
-            </div>
-          </div>
-          <div className="text-right shrink-0">
-            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium block ${STATUS_COLOUR[c.outreachStatus as OutreachStatus]}`}>
-              {STATUS_LABEL[c.outreachStatus as OutreachStatus]}
-            </span>
-            <span className="text-[11px] text-gray-400 mt-0.5 block">Score {c.priorityScore}</span>
-          </div>
-        </button>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -199,26 +261,25 @@ function PriorityQueue({ contacts, onSelect }: { contacts: Contact[]; onSelect: 
 // ── Follow-up queue ───────────────────────────────────────────────────────────
 
 function FollowUpQueue({ contacts, onSelect, onRefresh }: { contacts: Contact[]; onSelect: (id: string) => void; onRefresh: () => void }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [bulkLoading, setBulkLoading] = useState(false)
+  const [resolved, setResolved] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState<Record<string, OutreachStatus>>({})
 
-  const toggle = (id: string) =>
-    setSelected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
-
-  const bulkUpdate = async (status: OutreachStatus) => {
-    if (selected.size === 0) return
-    setBulkLoading(true)
+  const resolve = async (e: React.MouseEvent, id: string, status: OutreachStatus) => {
+    e.stopPropagation()
+    setLoading(prev => ({ ...prev, [id]: status }))
     await fetch('/api/crm/contacts/bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: Array.from(selected), outreachStatus: status }),
+      body: JSON.stringify({ ids: [id], outreachStatus: status }),
     })
-    setSelected(new Set())
-    setBulkLoading(false)
-    onRefresh()
+    setResolved(prev => new Set(prev).add(id))
+    setLoading(prev => { const s = { ...prev }; delete s[id]; return s })
+    setTimeout(onRefresh, 600)
   }
 
-  if (contacts.length === 0) {
+  const visible = contacts.filter(c => !resolved.has(c.id))
+
+  if (visible.length === 0 && contacts.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-12 text-center space-y-2">
         <div className="text-2xl">✅</div>
@@ -229,110 +290,49 @@ function FollowUpQueue({ contacts, onSelect, onRefresh }: { contacts: Contact[];
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-gray-400">
-        {contacts.length} contact{contacts.length !== 1 ? 's' : ''} messaged 7+ days ago with no reply. Select any to bulk update their status.
-      </p>
-
-      {/* Bulk action bar */}
-      {selected.size > 0 && (
-        <div className="flex items-center gap-3 bg-pgm-ink text-white px-5 py-3 rounded-xl sticky top-4 z-10 shadow-lg">
-          <span className="text-sm font-medium">{selected.size} selected</span>
-          <div className="flex gap-2 ml-auto">
-            {([
-              [OutreachStatus.NO_RESPONSE, 'Mark no response', 'bg-orange-500 hover:bg-orange-600'],
-              [OutreachStatus.REPLIED, 'Mark replied', 'bg-pgm-green hover:bg-pgm-green/80'],
-              [OutreachStatus.NOT_INTERESTED, 'Not interested', 'bg-red-500 hover:bg-red-600'],
-            ] as [OutreachStatus, string, string][]).map(([status, label, cls]) => (
-              <button
-                key={status}
-                onClick={() => bulkUpdate(status)}
-                disabled={bulkLoading}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-60 ${cls}`}
-              >
-                {label}
-              </button>
-            ))}
-            <button
-              onClick={() => setSelected(new Set())}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/10 hover:bg-white/20 transition-colors"
-            >
-              Clear
+    <div className="space-y-2">
+      <p className="text-xs text-gray-400">{visible.length} contact{visible.length !== 1 ? 's' : ''} waiting for a reply. Tap a button to resolve each one.</p>
+      {visible.map((c) => {
+        const days = daysSince(c.lastContactedAt as Date | null)
+        const isLoading = !!loading[c.id]
+        return (
+          <div key={c.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3 hover:border-gray-300 transition-all">
+            {/* Avatar */}
+            <button onClick={() => onSelect(c.id)} className="w-9 h-9 rounded-full bg-pgm-green/10 flex items-center justify-center shrink-0 hover:bg-pgm-green/20 transition-colors">
+              <span className="text-pgm-green text-xs font-semibold">{c.firstName[0]}{c.lastName[0]}</span>
             </button>
-          </div>
-        </div>
-      )}
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100">
-              <th className="px-4 py-3 w-10">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300 text-pgm-green focus:ring-pgm-green/30"
-                  checked={selected.size === contacts.length && contacts.length > 0}
-                  onChange={(e) => setSelected(e.target.checked ? new Set(contacts.map(c => c.id)) : new Set())}
-                />
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Company</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Last messaged</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Days waiting</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {contacts.map((c) => {
-              const days = daysSince(c.lastContactedAt as Date | null)
-              const isSelected = selected.has(c.id)
-              return (
-                <tr
-                  key={c.id}
-                  className={`transition-colors ${isSelected ? 'bg-pgm-green/5' : 'hover:bg-gray-50/60'}`}
-                >
-                  <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggle(c.id) }}>
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-pgm-green focus:ring-pgm-green/30"
-                      checked={isSelected}
-                      onChange={() => toggle(c.id)}
-                    />
-                  </td>
-                  <td className="px-4 py-3 cursor-pointer" onClick={() => window.location.href = `/crm/${c.id}`}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-pgm-green/10 flex items-center justify-center shrink-0">
-                        <span className="text-pgm-green text-[10px] font-semibold">{c.firstName[0]}{c.lastName[0]}</span>
-                      </div>
-                      <div>
-                        <div className="font-medium text-pgm-ink">{c.firstName} {c.lastName}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-[180px]">{c.position ?? ''}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 cursor-pointer" onClick={() => window.location.href = `/crm/${c.id}`}>
-                    <div className="truncate max-w-[160px]">{c.company ?? '—'}</div>
-                    <div className="text-xs text-gray-400">{SEGMENT_LABEL[c.industrySegment as IndustrySegment]}</div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(c.lastContactedAt as Date | null)}</td>
-                  <td className="px-4 py-3">
-                    {days !== null ? (
-                      <span className={`text-sm font-semibold ${days > 30 ? 'text-red-600' : days > 14 ? 'text-orange-600' : 'text-amber-600'}`}>
-                        {days}d
-                      </span>
-                    ) : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLOUR[c.outreachStatus as OutreachStatus]}`}>
-                      {STATUS_LABEL[c.outreachStatus as OutreachStatus]}
-                    </span>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+            {/* Info */}
+            <button onClick={() => onSelect(c.id)} className="flex-1 min-w-0 text-left">
+              <div className="font-medium text-pgm-ink text-sm">{c.firstName} {c.lastName}</div>
+              <div className="text-xs text-gray-500 truncate">{c.position}{c.company ? ` · ${c.company}` : ''}</div>
+            </button>
+
+            {/* Days badge */}
+            {days !== null && (
+              <span className={`text-xs font-semibold shrink-0 ${days > 30 ? 'text-red-500' : days > 14 ? 'text-orange-500' : 'text-amber-500'}`}>
+                {days}d
+              </span>
+            )}
+
+            {/* Inline resolve buttons */}
+            <div className="flex gap-1.5 shrink-0">
+              <button onClick={(e) => resolve(e, c.id, OutreachStatus.REPLIED)} disabled={isLoading}
+                className="px-2.5 py-1.5 bg-pgm-green hover:bg-pgm-green/90 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-60">
+                Replied
+              </button>
+              <button onClick={(e) => resolve(e, c.id, OutreachStatus.NO_RESPONSE)} disabled={isLoading}
+                className="px-2.5 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-60">
+                No reply
+              </button>
+              <button onClick={(e) => resolve(e, c.id, OutreachStatus.NOT_INTERESTED)} disabled={isLoading}
+                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs font-medium rounded-lg transition-colors disabled:opacity-60">
+                ✕
+              </button>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -344,14 +344,18 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
   const [filterTier, setFilterTier] = useState<string>('ALL')
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
   const [filterSegment, setFilterSegment] = useState<string>('ALL')
+  const [filterRegion, setFilterRegion] = useState<string>('ALL')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkStatus, setBulkStatus] = useState<OutreachStatus>(OutreachStatus.MESSAGED)
+  const [bulkMode, setBulkMode] = useState<'status' | 'location'>('status')
+  const [bulkRegion, setBulkRegion] = useState<CountryRegion>(CountryRegion.UK)
 
   const filtered = contacts.filter((c) => {
     if (filterTier !== 'ALL' && c.titleTier !== filterTier) return false
     if (filterStatus !== 'ALL' && c.outreachStatus !== filterStatus) return false
     if (filterSegment !== 'ALL' && c.industrySegment !== filterSegment) return false
+    if (filterRegion !== 'ALL' && (c as any).countryRegion !== filterRegion) return false
     if (search) {
       const q = search.toLowerCase()
       return (
@@ -375,10 +379,16 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
   const bulkUpdate = async () => {
     if (selected.size === 0) return
     setBulkLoading(true)
+    const isEssex = (bulkRegion as string) === 'ESSEX_UK'
+    const payload = bulkMode === 'status'
+      ? { ids: Array.from(selected), outreachStatus: bulkStatus }
+      : isEssex
+        ? { ids: Array.from(selected), countryRegion: CountryRegion.UK, country: 'Essex' }
+        : { ids: Array.from(selected), countryRegion: bulkRegion }
     await fetch('/api/crm/contacts/bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: Array.from(selected), outreachStatus: bulkStatus }),
+      body: JSON.stringify(payload),
     })
     setSelected(new Set())
     setBulkLoading(false)
@@ -420,6 +430,14 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
           <option value="ALL">All segments</option>
           {(Object.entries(SEGMENT_LABEL) as [IndustrySegment, string][]).filter(([k]) => k !== 'UNKNOWN').map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+        <select
+          value={filterRegion}
+          onChange={(e) => setFilterRegion(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pgm-green/30"
+        >
+          <option value="ALL">All locations</option>
+          {REGION_OPTIONS.map((k) => <option key={k} value={k}>{REGION_LABEL[k]}</option>)}
+        </select>
         {filtered.length !== contacts.length && (
           <span className="px-3 py-2 text-xs text-gray-500 self-center">
             Showing {filtered.length.toLocaleString()} of {contacts.length.toLocaleString()}
@@ -431,28 +449,40 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
       {selected.size > 0 && (
         <div className="flex items-center gap-3 bg-pgm-ink text-white px-5 py-3 rounded-xl sticky top-4 z-10 shadow-lg flex-wrap">
           <span className="text-sm font-medium">{selected.size} selected</span>
+
+          {/* Mode toggle */}
+          <div className="flex gap-1 bg-white/10 rounded-lg p-0.5 ml-2">
+            {(['status', 'location'] as const).map((m) => (
+              <button key={m} onClick={() => setBulkMode(m)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${bulkMode === m ? 'bg-white text-pgm-ink' : 'text-white/70 hover:text-white'}`}>
+                {m === 'status' ? 'Set status' : 'Set location'}
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-2 ml-auto flex-wrap">
-            <span className="text-xs text-white/60">Mark all as:</span>
-            <select
-              value={bulkStatus}
-              onChange={(e) => setBulkStatus(e.target.value as OutreachStatus)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-pgm-ink focus:outline-none"
-            >
-              {(Object.entries(STATUS_LABEL) as [OutreachStatus, string][]).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-            <button
-              onClick={bulkUpdate}
-              disabled={bulkLoading}
-              className="px-4 py-1.5 rounded-lg text-xs font-medium bg-pgm-green hover:bg-pgm-green/80 transition-colors disabled:opacity-60"
-            >
+            {bulkMode === 'status' ? (
+              <select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value as OutreachStatus)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-pgm-ink focus:outline-none">
+                {(Object.entries(STATUS_LABEL) as [OutreachStatus, string][]).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            ) : (
+              <select value={bulkRegion} onChange={(e) => setBulkRegion(e.target.value as CountryRegion)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-pgm-ink focus:outline-none">
+                <option value="ESSEX_UK">📍 Essex (UK)</option>
+                {REGION_OPTIONS.filter(r => r !== CountryRegion.UNKNOWN).map((r) => (
+                  <option key={r} value={r}>{REGION_LABEL[r]}</option>
+                ))}
+              </select>
+            )}
+            <button onClick={bulkUpdate} disabled={bulkLoading}
+              className="px-4 py-1.5 rounded-lg text-xs font-medium bg-pgm-green hover:bg-pgm-green/80 transition-colors disabled:opacity-60">
               {bulkLoading ? 'Updating…' : 'Apply'}
             </button>
-            <button
-              onClick={() => setSelected(new Set())}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/10 hover:bg-white/20 transition-colors"
-            >
+            <button onClick={() => setSelected(new Set())}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/10 hover:bg-white/20 transition-colors">
               Clear
             </button>
           </div>
@@ -476,6 +506,7 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Title</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Company</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Location</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Segment</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Score</th>
@@ -484,7 +515,7 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
             <tbody className="divide-y divide-gray-50">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">No contacts match your filters.</td>
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">No contacts match your filters.</td>
                 </tr>
               )}
               {filtered.map((c) => {
@@ -517,6 +548,13 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600 truncate max-w-[160px] cursor-pointer" onClick={() => onSelect(c.id)}>{c.company ?? '—'}</td>
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => onSelect(c.id)}>
+                      {(c as any).countryRegion && (c as any).countryRegion !== 'UNKNOWN' ? (
+                        <span className="text-sm">{REGION_LABEL[(c as any).countryRegion as CountryRegion]}</span>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-500 text-xs cursor-pointer" onClick={() => onSelect(c.id)}>{SEGMENT_LABEL[c.industrySegment as IndustrySegment]}</td>
                     <td className="px-4 py-3 cursor-pointer" onClick={() => onSelect(c.id)}>
                       <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLOUR[c.outreachStatus as OutreachStatus]}`}>

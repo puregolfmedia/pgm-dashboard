@@ -49,6 +49,8 @@ model Contact {
   titleTier       TitleTier       @default(OTHER)
   industrySegment IndustrySegment @default(UNKNOWN)
   outreachStatus  OutreachStatus  @default(NOT_STARTED)
+  countryRegion   CountryRegion   @default(UNKNOWN)
+  country         String?
   priorityScore   Int             @default(0)
 
   lastContactedAt DateTime?
@@ -104,6 +106,17 @@ enum OutreachStatus {
   MEETING_BOOKED
   NOT_INTERESTED
   NO_RESPONSE
+}
+
+enum CountryRegion {
+  UK
+  IRELAND
+  EUROPE
+  NORTH_AMERICA
+  AUSTRALIA_NZ
+  ASIA
+  REST_OF_WORLD
+  UNKNOWN
 }
 
 enum OutreachType {
