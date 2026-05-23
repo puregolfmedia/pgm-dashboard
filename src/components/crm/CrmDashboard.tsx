@@ -456,8 +456,8 @@ function AllContactsTable({ contacts, onSelect, onRefresh }: { contacts: Contact
               <option key={c} value={c}>{c}</option>
             )
           )}
-          <option disabled>── Regions ──</option>
-          {REGION_OPTIONS.filter(r => r !== CountryRegion.UK).map((k) => (
+          <option disabled>── By region ──</option>
+          {REGION_OPTIONS.map((k) => (
             <option key={k} value={k}>{REGION_LABEL[k]}</option>
           ))}
         </select>
