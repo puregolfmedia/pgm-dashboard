@@ -8,11 +8,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (!session?.user || user.role !== 'ADMIN') redirect('/dashboard')
 
-  const isCrmOwner = user.username === process.env.CRM_OWNER
-
   return (
     <div className="flex min-h-screen bg-[#F8F8F6]">
-      <Sidebar isAdmin isCrmOwner={isCrmOwner} />
+      <Sidebar isAdmin />
       <main className="flex-1 overflow-auto pt-14 lg:pt-0">
         {children}
       </main>
