@@ -55,5 +55,9 @@ model DataSourceConfig {
   emailOctopusApiKey       String?
   emailOctopusListId       String?
 
+  // Mailchimp
+  mailchimpApiKey          String?
+  mailchimpListId          String?
+
   updatedAt                DateTime @updatedAt
 }

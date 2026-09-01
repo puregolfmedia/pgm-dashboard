@@ -25,6 +25,8 @@ export default function EditClientPage() {
     metaAdAccountId: '',
     metaAccessToken: '',
     emailOctopusApiKey: '',
+    mailchimpApiKey: '',
+    mailchimpListId: '',
   })
 
   const [newPassword, setNewPassword] = useState('')
@@ -44,6 +46,8 @@ export default function EditClientPage() {
             metaAdAccountId: cfg.metaAdAccountId ?? '',
             metaAccessToken: '',
             emailOctopusApiKey: '',
+            mailchimpApiKey: '',
+            mailchimpListId: cfg.mailchimpListId ?? '',
           })
         }
         setLoading(false)
@@ -200,6 +204,38 @@ export default function EditClientPage() {
               value={form.emailOctopusApiKey}
               onChange={set('emailOctopusApiKey')}
             />
+          </div>
+
+          <div className="border-t border-gray-100 pt-5">
+            <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Mailchimp</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Status:{' '}
+              {cfg?.mailchimpApiKey === '[configured]'
+                ? <span className="text-pgm-green font-medium">✓ Connected</span>
+                : <span className="text-gray-400">✗ Not configured</span>}
+              {cfg?.mailchimpApiKey === '[configured]' && cfg?.emailOctopusApiKey === '[configured]' && (
+                <span className="text-gray-400"> · takes priority over Email Octopus when both are set</span>
+              )}
+            </p>
+            <div className="space-y-4">
+              <Input
+                label="API Key"
+                hint={cfg?.mailchimpApiKey === '[configured]'
+                  ? '✓ Key stored — paste a new one only if replacing it'
+                  : "Account → Extras → API keys in Mailchimp. Keep the '-usXX' suffix, it's the datacenter."}
+                type="password"
+                placeholder={cfg?.mailchimpApiKey === '[configured]' ? '(unchanged)' : 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-us21'}
+                value={form.mailchimpApiKey}
+                onChange={set('mailchimpApiKey')}
+              />
+              <Input
+                label="Audience (List) ID"
+                hint="Audience → Settings → Audience name and defaults → Audience ID"
+                placeholder="a1b2c3d4e5"
+                value={form.mailchimpListId}
+                onChange={set('mailchimpListId')}
+              />
+            </div>
           </div>
 
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}

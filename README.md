@@ -82,6 +82,12 @@ Open [http://localhost:3000](http://localhost:3000) — you'll be redirected to 
 - Grant the system user access to the client's ad account
 - Paste the **Ad Account ID** (numbers only, no `act_` prefix) and the **System User Access Token**
 
+**Mailchimp setup:**
+- In the client's Mailchimp account → Account → Extras → API keys → create a key
+- Paste the **API Key** exactly as given, including the `-usXX` suffix (that's the datacenter, e.g. `-us21`) — the app parses it from the key
+- Find the **Audience ID** under Audience → Settings → Audience name and defaults, and paste it in
+- If both Mailchimp and Email Octopus are configured for a client, Mailchimp takes priority
+
 4. Click **Save config**, then **View dashboard →** to verify live data is loading
 
 ---
