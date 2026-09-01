@@ -29,6 +29,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       ga4ServiceAccountJson: client.dataConfig.ga4ServiceAccountJson ? '[configured]' : null,
       metaAccessToken: client.dataConfig.metaAccessToken ? '[configured]' : null,
       emailOctopusApiKey: client.dataConfig.emailOctopusApiKey ? '[configured]' : null,
+      mailchimpApiKey: client.dataConfig.mailchimpApiKey ? '[configured]' : null,
     } : null,
   }
 
@@ -40,7 +41,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   const body = await request.json()
   const { ga4PropertyId, ga4ServiceAccountJson, ga4BookingEventName, ga4MembershipEventName,
-          metaAdAccountId, metaAccessToken, emailOctopusApiKey, newPassword } = body
+          metaAdAccountId, metaAccessToken, emailOctopusApiKey,
+          mailchimpApiKey, mailchimpListId, newPassword } = body
 
   // Handle password reset
   if (newPassword) {
@@ -60,6 +62,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (metaAdAccountId !== undefined) configData.metaAdAccountId = metaAdAccountId || null
   if (metaAccessToken) configData.metaAccessToken = encrypt(metaAccessToken)
   if (emailOctopusApiKey) configData.emailOctopusApiKey = encrypt(emailOctopusApiKey)
+  if (mailchimpListId !== undefined) configData.mailchimpListId = mailchimpListId || null
+  if (mailchimpApiKey) configData.mailchimpApiKey = encrypt(mailchimpApiKey)
 
   if (Object.keys(configData).length > 0) {
     await prisma.dataSourceConfig.upsert({
