@@ -17,7 +17,14 @@ export default auth((req) => {
   const isAdmin = nextUrl.pathname.startsWith('/admin')
   const isApiDashboard = nextUrl.pathname.startsWith('/api/dashboard')
   const isApiAdmin = nextUrl.pathname.startsWith('/api/admin')
-  const isApiChangePassword = nextUrl.pathname === '/api/auth/change-password'
+  // NextAuth's own endpoints (/api/auth/session, /csrf, /signout, …) plus our
+  // /api/auth/change-password route must never be redirected. A 307 redirect
+  // keeps the POST method, so signing out after setting a password ended up
+  // POSTing to the static /change-password page and failing with 405.
+  // The change-password route checks the session itself.
+  if (nextUrl.pathname.startsWith('/api/auth/')) {
+    return NextResponse.next()
+  }
 
   // Unauthenticated — redirect to login
   if (!isLoggedIn && (isDashboard || isAdmin || isApiDashboard || isApiAdmin || isChangePassword)) {
@@ -30,7 +37,7 @@ export default auth((req) => {
   }
 
   // Password reset required — only allow /change-password and /api/auth/change-password
-  if (isLoggedIn && passwordResetRequired && !isChangePassword && !isApiChangePassword) {
+  if (isLoggedIn && passwordResetRequired && !isChangePassword) {
     return NextResponse.redirect(new URL('/change-password', nextUrl))
   }
 
