@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The Google Analytics client uses gRPC, which breaks when webpack bundles it
+  // (every call fails with "undefined undefined: undefined"). Load it from
+  // node_modules at runtime instead.
+  experimental: {
+    serverComponentsExternalPackages: ['@google-analytics/data', 'google-gax', '@grpc/grpc-js'],
+  },
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: false },
   webpack: (config, { isServer }) => {
