@@ -36,32 +36,6 @@ export async function fetchGA4Overview(
 
   const fmt = (d: Date) => d.toISOString().split('T')[0]
 
-  await client.runReport({
-    property: `properties/${propertyId}`,
-    dateRanges: [
-      { startDate: fmt(midpoint), endDate: fmt(end), name: 'current' },
-      { startDate: fmt(start), endDate: fmt(midpoint), name: 'previous' },
-    ],
-    metrics: [
-      { name: 'sessions' },
-      { name: 'bounceRate' },
-      { name: 'averageSessionDuration' },
-      { name: `eventCount` },
-    ],
-    dimensionFilter: {
-      orGroup: {
-        expressions: [
-          {
-            filter: {
-              fieldName: 'eventName',
-              stringFilter: { value: bookingEventName, matchType: 'EXACT' },
-            },
-          },
-        ],
-      },
-    },
-  })
-
   // Also fetch booking event count separately (event count filtered by name)
   const [bookingResponse] = await client.runReport({
     property: `properties/${propertyId}`,
@@ -179,26 +153,58 @@ export async function fetchGA4LandingPages(
   start.setDate(end.getDate() - days)
   const fmt = (d: Date) => d.toISOString().split('T')[0]
 
-  const [response] = await client.runReport({
-    property: `properties/${propertyId}`,
-    dateRanges: [{ startDate: fmt(start), endDate: fmt(end) }],
-    dimensions: [{ name: 'landingPagePlusQueryString' }],
-    metrics: [{ name: 'sessions' }, { name: 'eventCount' }],
-    dimensionFilter: {
-      notExpression: {
-        filter: {
-          fieldName: 'landingPagePlusQueryString',
-          stringFilter: { value: '(not set)', matchType: 'EXACT' },
-        },
+  const notSetFilter = {
+    notExpression: {
+      filter: {
+        fieldName: 'landingPagePlusQueryString',
+        stringFilter: { value: '(not set)', matchType: 'EXACT' as const },
       },
     },
-    orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
-    limit: 20,
-  })
+  }
+
+  // Sessions per landing page, and booking events per landing page, fetched
+  // separately: an unfiltered eventCount counts every event (page views,
+  // scrolls…), not just bookings.
+  const [[response], [bookingResponse]] = await Promise.all([
+    client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [{ startDate: fmt(start), endDate: fmt(end) }],
+      dimensions: [{ name: 'landingPagePlusQueryString' }],
+      metrics: [{ name: 'sessions' }],
+      dimensionFilter: notSetFilter,
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      limit: 20,
+    }),
+    client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [{ startDate: fmt(start), endDate: fmt(end) }],
+      dimensions: [{ name: 'landingPagePlusQueryString' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: {
+        andGroup: {
+          expressions: [
+            notSetFilter,
+            {
+              filter: {
+                fieldName: 'eventName',
+                stringFilter: { value: bookingEventName, matchType: 'EXACT' as const },
+              },
+            },
+          ],
+        },
+      },
+      limit: 1000,
+    }),
+  ])
+
+  const bookingMap = new Map<string, number>()
+  for (const row of bookingResponse.rows ?? []) {
+    bookingMap.set(row.dimensionValues?.[0]?.value ?? '', parseInt(row.metricValues?.[0]?.value ?? '0'))
+  }
 
   return (response.rows ?? []).map((row) => {
     const sessions = parseInt(row.metricValues?.[0]?.value ?? '0')
-    const bookingStarts = parseInt(row.metricValues?.[1]?.value ?? '0')
+    const bookingStarts = bookingMap.get(row.dimensionValues?.[0]?.value ?? '') ?? 0
     return {
       page: row.dimensionValues?.[0]?.value ?? '',
       sessions,
