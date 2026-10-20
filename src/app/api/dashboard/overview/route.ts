@@ -59,6 +59,18 @@ export async function GET(request: Request) {
         : Promise.resolve([]),
     ])
 
+    // Don't let a failed source quietly show as zeros: log it and tell the page.
+    const warnings: string[] = []
+    const ga4Failed = [ga4, dailyBookings, trafficSources, landingPages].find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined
+    if (ga4Failed) {
+      console.error('[overview:ga4]', ga4Failed.reason)
+      warnings.push('Google Analytics data could not be loaded — figures below may be incomplete.')
+    }
+    if (meta.status === 'rejected') {
+      console.error('[overview:meta]', meta.reason)
+      warnings.push('Meta Ads data could not be loaded — ad figures below may be missing.')
+    }
+
     const ga4Data = ga4.status === 'fulfilled' ? ga4.value : null
     const metaData = meta.status === 'fulfilled' ? meta.value : null
     const daily = dailyBookings.status === 'fulfilled' ? dailyBookings.value : []
@@ -110,8 +122,13 @@ export async function GET(request: Request) {
       dailyBookings: daily,
       trafficSources: traffic,
       landingPages: pages,
+      warnings,
     }
 
+    // Cache only complete results, so a temporary failure isn't remembered for 5 minutes
+    if (warnings.length > 0) {
+      return NextResponse.json({ data, lastUpdated: new Date().toISOString(), error: null })
+    }
     const result = cacheSet(cacheKey, data)
     return NextResponse.json({ data, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
   } catch (err) {

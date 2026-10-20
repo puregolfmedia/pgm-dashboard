@@ -85,6 +85,15 @@ export default function OverviewContent({ clientId, isAdmin }: OverviewContentPr
         )}
       </div>
 
+      {/* A data source failed — say so rather than showing misleading zeros */}
+      {!loading && data?.warnings?.length > 0 && (
+        <div className="bg-amber-50 border border-amber-100 rounded-2xl px-5 py-3 space-y-1">
+          {data.warnings.map((w: string) => (
+            <p key={w} className="text-sm text-amber-800">{w}</p>
+          ))}
+        </div>
+      )}
+
       {/* Metric cards — row 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <MetricCard label="Sessions" value={metrics?.sessions.value ?? '—'} change={metrics?.sessions.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />

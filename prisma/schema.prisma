@@ -59,5 +59,8 @@ model DataSourceConfig {
   mailchimpApiKey          String?
   mailchimpListId          String?
 
+  // Google Search Console (uses the GA4 service account)
+  searchConsoleSiteUrl     String?
+
   updatedAt                DateTime @updatedAt
 }

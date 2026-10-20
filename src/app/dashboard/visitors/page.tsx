@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
+import { useActiveClient } from '@/lib/useActiveClient'
 import DashboardHeader from '@/components/layout/DashboardHeader'
 import FilterBar from '@/components/dashboard/FilterBar'
 import MetricCard from '@/components/dashboard/MetricCard'
@@ -13,9 +13,7 @@ function formatDuration(seconds: number): string {
 }
 
 export default function VisitorsPage() {
-  const { data: session } = useSession()
-  const user = session?.user as any
-  const clientId = user?.clientId
+  const { clientId, ready, missingClientMessage } = useActiveClient()
 
   const [days, setDays] = useState(30)
   const [data, setData] = useState<any>(null)
@@ -24,7 +22,10 @@ export default function VisitorsPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!clientId) return
+    if (!clientId) {
+      if (ready) { setError(missingClientMessage); setLoading(false) }
+      return
+    }
     setLoading(true)
     setError(null)
     fetch(`/api/dashboard/visitors?clientId=${clientId}&days=${days}`)
@@ -35,7 +36,7 @@ export default function VisitorsPage() {
       })
       .catch(() => setError('Failed to load data'))
       .finally(() => setLoading(false))
-  }, [clientId, days])
+  }, [clientId, ready, missingClientMessage, days])
 
   const lastUpdatedTime = lastUpdated
     ? new Date(lastUpdated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
