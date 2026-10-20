@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 
 const navItems = [
@@ -12,10 +12,14 @@ const navItems = [
   { label: 'Email',       href: '/dashboard/email' },
   { label: 'Paid Social', href: '/dashboard/paid-social' },
   { label: 'Pages',       href: '/dashboard/pages' },
+  { label: 'Google Search', href: '/dashboard/seo' },
   { label: 'UTMs',        href: '/dashboard/utms' },
 ]
 
-function NavContent({ isAdmin, pathname, onNav }: { isAdmin?: boolean; pathname: string; onNav?: () => void }) {
+function NavContent({ isAdmin, pathname, viewAs, onNav }: { isAdmin?: boolean; pathname: string; viewAs?: string | null; onNav?: () => void }) {
+  // Keep an admin's chosen club when moving between tabs
+  const withClub = (href: string) => (viewAs ? `${href}?viewAs=${encodeURIComponent(viewAs)}` : href)
+
   return (
     <>
       {/* Logo */}
@@ -38,7 +42,7 @@ function NavContent({ isAdmin, pathname, onNav }: { isAdmin?: boolean; pathname:
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={withClub(item.href)}
               onClick={onNav}
               className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                 isActive
@@ -86,6 +90,8 @@ function NavContent({ isAdmin, pathname, onNav }: { isAdmin?: boolean; pathname:
 
 export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const viewAs = isAdmin ? searchParams.get('viewAs') : null
   const [open, setOpen] = useState(false)
 
   return (
@@ -123,12 +129,12 @@ export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <NavContent isAdmin={isAdmin} pathname={pathname} onNav={() => setOpen(false)} />
+        <NavContent isAdmin={isAdmin} pathname={pathname} viewAs={viewAs} onNav={() => setOpen(false)} />
       </div>
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-56 shrink-0 bg-pgm-ink min-h-screen flex-col">
-        <NavContent isAdmin={isAdmin} pathname={pathname} />
+        <NavContent isAdmin={isAdmin} pathname={pathname} viewAs={viewAs} />
       </aside>
     </>
   )

@@ -27,6 +27,7 @@ export default function EditClientPage() {
     emailOctopusApiKey: '',
     mailchimpApiKey: '',
     mailchimpListId: '',
+    searchConsoleSiteUrl: '',
   })
 
   const [newPassword, setNewPassword] = useState('')
@@ -48,6 +49,7 @@ export default function EditClientPage() {
             emailOctopusApiKey: '',
             mailchimpApiKey: '',
             mailchimpListId: cfg.mailchimpListId ?? '',
+            searchConsoleSiteUrl: cfg.searchConsoleSiteUrl ?? '',
           })
         }
         setLoading(false)
@@ -110,9 +112,11 @@ export default function EditClientPage() {
             <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Google Analytics 4</h2>
             <p className="text-xs text-gray-400">
               Status:{' '}
-              {cfg?.ga4PropertyId
+              {cfg?.ga4PropertyId && cfg?.ga4ServiceAccountJson === '[configured]'
                 ? <span className="text-pgm-green font-medium">✓ Connected</span>
-                : <span className="text-gray-400">✗ Not configured</span>}
+                : cfg?.ga4PropertyId
+                  ? <span className="text-amber-600 font-medium">Property ID saved — service account key still needed</span>
+                  : <span className="text-gray-400">✗ Not configured</span>}
             </p>
           </div>
 
@@ -236,6 +240,25 @@ export default function EditClientPage() {
                 onChange={set('mailchimpListId')}
               />
             </div>
+          </div>
+
+          <div className="border-t border-gray-100 pt-5">
+            <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Google Search Console</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Status:{' '}
+              {cfg?.searchConsoleSiteUrl && cfg?.ga4ServiceAccountJson === '[configured]'
+                ? <span className="text-pgm-green font-medium">✓ Connected</span>
+                : cfg?.searchConsoleSiteUrl
+                  ? <span className="text-amber-600 font-medium">Site saved — add the GA4 service account key above</span>
+                  : <span className="text-gray-400">✗ Not configured</span>}
+            </p>
+            <Input
+              label="Search Console property"
+              hint="Exactly as shown in Search Console's property picker: sc-domain:example.co.uk for a Domain property, or the full URL (https://www.example.co.uk/) for a URL-prefix one. Uses the GA4 service account — add its email as a user in Search Console."
+              placeholder="sc-domain:example.co.uk"
+              value={form.searchConsoleSiteUrl}
+              onChange={set('searchConsoleSiteUrl')}
+            />
           </div>
 
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
