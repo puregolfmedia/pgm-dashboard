@@ -6,6 +6,7 @@ import DashboardHeader from '@/components/layout/DashboardHeader'
 import FilterBar from '@/components/dashboard/FilterBar'
 import MetricCard from '@/components/dashboard/MetricCard'
 import { pctChange } from '@/lib/utils'
+import { sectionHelp, searchImpressionsHelp } from '@/lib/metricHelp'
 
 const nf = new Intl.NumberFormat('en-GB')
 
@@ -20,6 +21,7 @@ function SearchTable({ title, keyLabel, rows, loading, emptyText }: {
     <div className="bg-white border border-[#E8E8E8] rounded-2xl overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-50">
         <h2 className="text-sm font-medium text-pgm-ink">{title}</h2>
+        {sectionHelp[title] && <p className="text-xs text-gray-400 mt-0.5">{sectionHelp[title]}</p>}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -109,7 +111,7 @@ export default function SeoPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <MetricCard label="Clicks from Google" value={cur ? nf.format(cur.clicks) : '—'}
                 change={cur && prev ? pctChange(cur.clicks, prev.clicks) : 0} changePeriod={period} loading={loading} />
-              <MetricCard label="Impressions" value={cur ? nf.format(cur.impressions) : '—'}
+              <MetricCard label="Impressions" help={searchImpressionsHelp} value={cur ? nf.format(cur.impressions) : '—'}
                 change={cur && prev ? pctChange(cur.impressions, prev.impressions) : 0} changePeriod={period} loading={loading} />
               <MetricCard label="Click-through rate" value={cur ? `${cur.ctr.toFixed(1)}%` : '—'}
                 change={cur && prev ? pctChange(cur.ctr, prev.ctr) : 0} changePeriod={period} loading={loading} />

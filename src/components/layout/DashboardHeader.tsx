@@ -1,3 +1,5 @@
+import { pageHelp } from '@/lib/metricHelp'
+
 interface DashboardHeaderProps {
   title: string
   clientName?: string
@@ -15,6 +17,9 @@ export default function DashboardHeader({ title, clientName, lastUpdated }: Dash
         <h1 className="text-xl font-semibold text-pgm-ink">{title}</h1>
         {clientName && (
           <p className="text-sm text-gray-400 mt-0.5">{clientName}</p>
+        )}
+        {pageHelp[title] && (
+          <p className="text-sm text-gray-500 mt-1">{pageHelp[title]}</p>
         )}
       </div>
       {formattedTime && (

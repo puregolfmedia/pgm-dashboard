@@ -2,6 +2,7 @@
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { DailyBooking } from '@/types/dashboard'
+import { sectionHelp } from '@/lib/metricHelp'
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'))
@@ -13,7 +14,8 @@ export default function BookingsByDayChart({ data }: { data: DailyBooking[] }) {
 
   return (
     <div className="bg-white border border-[#E8E8E8] rounded-2xl p-5">
-      <h2 className="text-sm font-medium text-pgm-ink mb-5">Booking starts by day</h2>
+      <h2 className="text-sm font-medium text-pgm-ink">Booking starts by day</h2>
+      <p className="text-xs text-gray-400 mt-0.5 mb-5">{sectionHelp['Booking starts by day']}</p>
       {chartData.length === 0 ? (
         <div className="h-[220px] flex items-center justify-center text-sm text-gray-400">No booking data for this period</div>
       ) :
@@ -38,11 +40,11 @@ export default function BookingsByDayChart({ data }: { data: DailyBooking[] }) {
             labelStyle={{ color: '#1A2E22', fontWeight: 500 }}
           />
           <Line
-            type="monotone"
+            type="linear"
             dataKey="bookings"
             stroke="#006648"
             strokeWidth={2}
-            dot={false}
+            dot={{ r: 2.5, fill: '#006648' }}
             activeDot={{ r: 4, fill: '#006648' }}
             name="Booking starts"
           />

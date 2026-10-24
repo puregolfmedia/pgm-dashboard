@@ -1,12 +1,17 @@
+import { metricHelp } from '@/lib/metricHelp'
+
 interface MetricCardProps {
   label: string
+  /** Plain-English explanation; defaults to the glossary entry for the label */
+  help?: string
   value: string
   change: number
   changePeriod?: string
   loading?: boolean
 }
 
-export default function MetricCard({ label, value, change, changePeriod, loading }: MetricCardProps) {
+export default function MetricCard({ label, help, value, change, changePeriod, loading }: MetricCardProps) {
+  const explanation = help ?? metricHelp[label]
   if (loading) {
     return (
       <div className="bg-white border border-[#E8E8E8] rounded-2xl p-5 animate-pulse">
@@ -23,7 +28,8 @@ export default function MetricCard({ label, value, change, changePeriod, loading
   return (
     <div className="bg-white border border-[#E8E8E8] rounded-2xl p-5">
       <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">{label}</p>
-      <p className="text-3xl font-semibold text-pgm-ink mb-3 tabular-nums">{value}</p>
+      <p className="text-3xl font-semibold text-pgm-ink mb-2 tabular-nums">{value}</p>
+      {explanation && <p className="text-xs text-gray-400 leading-snug mb-3">{explanation}</p>}
       <div className="flex items-center gap-2">
         {!isNeutral && (
           <span
