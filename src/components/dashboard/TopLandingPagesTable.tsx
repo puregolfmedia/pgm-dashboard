@@ -1,10 +1,12 @@
 import type { LandingPage } from '@/types/dashboard'
+import { sectionHelp } from '@/lib/metricHelp'
 
 export default function TopLandingPagesTable({ data }: { data: LandingPage[] }) {
   return (
     <div className="bg-white border border-[#E8E8E8] rounded-2xl overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-50">
         <h2 className="text-sm font-medium text-pgm-ink">Top landing pages</h2>
+        <p className="text-xs text-gray-400 mt-0.5">{sectionHelp['Top landing pages']}</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

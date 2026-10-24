@@ -109,10 +109,23 @@ export async function fetchGA4DailyBookings(
     orderBys: [{ dimension: { dimensionName: 'date' } }],
   })
 
-  return (response.rows ?? []).map((row) => ({
-    date: row.dimensionValues?.[0]?.value ?? '',
-    bookings: parseInt(row.metricValues?.[0]?.value ?? '0'),
-  }))
+  const counts = new Map<string, number>()
+  for (const row of response.rows ?? []) {
+    counts.set(row.dimensionValues?.[0]?.value ?? '', parseInt(row.metricValues?.[0]?.value ?? '0'))
+  }
+  if (counts.size === 0) return []
+
+  // GA4 leaves out days with no bookings, which made the chart skip over them.
+  // Fill every day from the first recorded booking to today, using 0 where empty.
+  const ymd = (d: Date) => fmt(d).replace(/-/g, '')
+  const first = Array.from(counts.keys()).sort()[0]
+  const day = new Date(`${first.slice(0, 4)}-${first.slice(4, 6)}-${first.slice(6, 8)}T12:00:00Z`)
+  const result: DailyBooking[] = []
+  while (ymd(day) <= ymd(end)) {
+    result.push({ date: ymd(day), bookings: counts.get(ymd(day)) ?? 0 })
+    day.setUTCDate(day.getUTCDate() + 1)
+  }
+  return result
 }
 
 export async function fetchGA4TrafficSources(

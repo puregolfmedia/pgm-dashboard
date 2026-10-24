@@ -5,6 +5,7 @@ import { useActiveClient } from '@/lib/useActiveClient'
 import DashboardHeader from '@/components/layout/DashboardHeader'
 import FilterBar from '@/components/dashboard/FilterBar'
 import MetricCard from '@/components/dashboard/MetricCard'
+import { sectionHelp } from '@/lib/metricHelp'
 
 export default function PaidSocialPage() {
   const { clientId, ready, missingClientMessage } = useActiveClient()
@@ -64,6 +65,7 @@ export default function PaidSocialPage() {
             <div className="bg-white border border-[#E8E8E8] rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-50">
                 <h2 className="text-sm font-medium text-pgm-ink">Campaign breakdown</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{sectionHelp['Campaign breakdown']}</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

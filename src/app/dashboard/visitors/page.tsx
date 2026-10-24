@@ -5,6 +5,7 @@ import { useActiveClient } from '@/lib/useActiveClient'
 import DashboardHeader from '@/components/layout/DashboardHeader'
 import FilterBar from '@/components/dashboard/FilterBar'
 import MetricCard from '@/components/dashboard/MetricCard'
+import { sectionHelp } from '@/lib/metricHelp'
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -95,7 +96,8 @@ export default function VisitorsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               {/* Device breakdown */}
               <div className="bg-white border border-[#E8E8E8] rounded-2xl p-5">
-                <h2 className="text-sm font-medium text-pgm-ink mb-4">Device breakdown</h2>
+                <h2 className="text-sm font-medium text-pgm-ink">Device breakdown</h2>
+                <p className="text-xs text-gray-400 mt-0.5 mb-4">{sectionHelp['Device breakdown']}</p>
                 {loading ? (
                   <div className="space-y-3">
                     {[1,2,3].map(i => <div key={i} className="h-8 bg-gray-100 rounded animate-pulse" />)}
@@ -123,7 +125,8 @@ export default function VisitorsPage() {
 
               {/* Channel breakdown */}
               <div className="bg-white border border-[#E8E8E8] rounded-2xl p-5">
-                <h2 className="text-sm font-medium text-pgm-ink mb-4">Channel breakdown</h2>
+                <h2 className="text-sm font-medium text-pgm-ink">Channel breakdown</h2>
+                <p className="text-xs text-gray-400 mt-0.5 mb-4">{sectionHelp['Channel breakdown']}</p>
                 {loading ? (
                   <div className="space-y-3">
                     {[1,2,3,4].map(i => <div key={i} className="h-8 bg-gray-100 rounded animate-pulse" />)}
