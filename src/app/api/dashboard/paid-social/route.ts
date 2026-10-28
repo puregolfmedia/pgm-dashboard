@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { demoResponse } from '@/lib/demo'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchMetaOverview, fetchMetaCampaigns } from '@/lib/meta'
@@ -19,6 +20,9 @@ export async function GET(request: Request) {
   if (user.role !== 'ADMIN' && requestedClientId !== clientId) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'Forbidden' }, { status: 403 })
   }
+
+  const demo = await demoResponse(requestedClientId, 'paid-social', days)
+  if (demo) return demo
 
   const cacheKey = makeCacheKey(requestedClientId, 'paid-social', `${days}d`)
   const cached = cacheGet<any>(cacheKey)

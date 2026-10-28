@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { demoResponse } from '@/lib/demo'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchSearchConsole } from '@/lib/searchConsole'
@@ -22,6 +23,9 @@ export async function GET(request: Request) {
   if (!requestedClientId) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'No client associated' }, { status: 400 })
   }
+
+  const demo = await demoResponse(requestedClientId, 'seo', days)
+  if (demo) return demo
 
   const cacheKey = makeCacheKey(requestedClientId, 'seo', `${days}d`)
   const cached = cacheGet<any>(cacheKey)

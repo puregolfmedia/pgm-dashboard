@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { demoResponse } from '@/lib/demo'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchGA4Overview, fetchGA4DailyBookings, fetchGA4TrafficSources } from '@/lib/ga4'
@@ -23,6 +24,9 @@ export async function GET(request: Request) {
   if (!requestedClientId) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'No client associated' }, { status: 400 })
   }
+
+  const demo = await demoResponse(requestedClientId, 'membership', days)
+  if (demo) return demo
 
   const cacheKey = makeCacheKey(requestedClientId, 'membership', `${days}d`)
   const cached = cacheGet<any>(cacheKey)

@@ -35,6 +35,11 @@ model Client {
 
   // Secret part of the URL that website forms post enquiries to
   intakeToken String?          @unique
+  // Demo club: every tab shows sample data (for showing prospects)
+  isDemo      Boolean          @default(false)
+  // Club branding on its dashboard
+  logoUrl     String?
+  brandColor  String?
   enquiries   Enquiry[]
   goals       Goal[]
   notes       Note[]

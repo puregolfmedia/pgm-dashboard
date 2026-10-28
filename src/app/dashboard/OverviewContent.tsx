@@ -133,8 +133,8 @@ export default function OverviewContent({ clientId, isAdmin }: OverviewContentPr
       {/* Metric cards — row 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <MetricCard label="Sessions" value={metrics?.sessions.value ?? '—'} change={metrics?.sessions.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
-        <MetricCard label={bookingLabel} help={customLabel ? `Times a visitor did this on your website: ${bookingLabel.toLowerCase()}.` : undefined} value={metrics?.bookingStarts.value ?? '—'} change={metrics?.bookingStarts.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
-        <MetricCard label={customLabel ? `Cost per ${bookingLabel.toLowerCase()}` : 'Cost / booking start'} help={customLabel ? `Ad spend divided by ${bookingLabel.toLowerCase()}.` : undefined} value={metrics?.costPerBooking.value ?? '—'} change={metrics?.costPerBooking.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
+        <MetricCard label={bookingLabel} help={customLabel ? `How many times this was recorded on your website: ${bookingLabel}.` : undefined} value={metrics?.bookingStarts.value ?? '—'} change={metrics?.bookingStarts.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
+        <MetricCard label={customLabel ? `Cost / ${bookingLabel}` : 'Cost / booking start'} help={customLabel ? `Ad spend divided by ${bookingLabel}: what each one cost in advertising.` : undefined} value={metrics?.costPerBooking.value ?? '—'} change={metrics?.costPerBooking.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
       </div>
 
       {/* Metric cards — row 2 */}

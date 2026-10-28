@@ -65,7 +65,7 @@ export default function MembershipPage() {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-              <MetricCard label={data?.label ?? "Membership enquiries"} help={data?.label ? `Times someone did this on your website: ${data.label.toLowerCase()}.` : undefined} value={data?.metrics.enquiries.value ?? '—'} change={data?.metrics.enquiries.change ?? 0} changePeriod={data?.metrics.enquiries.changePeriod} loading={loading} />
+              <MetricCard label={data?.label ?? "Membership enquiries"} help={data?.label ? `How many times this was recorded on your website: ${data.label}.` : undefined} value={data?.metrics.enquiries.value ?? '—'} change={data?.metrics.enquiries.change ?? 0} changePeriod={data?.metrics.enquiries.changePeriod} loading={loading} />
               <MetricCard label="Sessions" value={data?.metrics.sessions.value ?? '—'} change={data?.metrics.sessions.change ?? 0} changePeriod={data?.metrics.sessions.changePeriod} loading={loading} />
               <MetricCard label="Enquiry rate" value={data?.metrics.conversionRate.value ?? '—'} change={0} changePeriod={data?.metrics.conversionRate.changePeriod} loading={loading} />
             </div>

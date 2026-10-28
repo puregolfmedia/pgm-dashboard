@@ -6,7 +6,7 @@ export default function TopLandingPagesTable({ data, label = 'Booking starts' }:
     <div className="bg-white border border-[#E8E8E8] rounded-2xl overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-50">
         <h2 className="text-sm font-medium text-pgm-ink">Top landing pages</h2>
-        <p className="text-xs text-gray-400 mt-0.5">{label === 'Booking starts' ? sectionHelp['Top landing pages'] : `The first page people arrived on, how many went on to: ${label.toLowerCase()}, and the conversion %.`}</p>
+        <p className="text-xs text-gray-400 mt-0.5">{label === 'Booking starts' ? sectionHelp['Top landing pages'] : `The first page people arrived on, how many “${label}” followed, and the conversion % (${label} ÷ sessions).`}</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

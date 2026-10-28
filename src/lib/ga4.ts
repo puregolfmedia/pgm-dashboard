@@ -375,3 +375,57 @@ export async function fetchGA4Visitors(
     })),
   }
 }
+
+export interface DailyHealthRow {
+  date: string // YYYYMMDD
+  sessions: number
+  keyActions: number
+}
+
+/** Daily sessions and key-action counts for the last `days` days (today excluded), with empty days as 0. */
+export async function fetchGA4DailyHealth(
+  propertyId: string,
+  encryptedServiceAccountJson: string,
+  keyEventName: string,
+  days = 21
+): Promise<DailyHealthRow[]> {
+  const client = getClient(encryptedServiceAccountJson)
+  const end = new Date()
+  end.setDate(end.getDate() - 1)
+  const start = new Date(end)
+  start.setDate(end.getDate() - (days - 1))
+  const fmt = (d: Date) => d.toISOString().split('T')[0]
+  const range = [{ startDate: fmt(start), endDate: fmt(end) }]
+
+  const [[sessions], [events]] = await Promise.all([
+    client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: range,
+      dimensions: [{ name: 'date' }],
+      metrics: [{ name: 'sessions' }],
+    }),
+    client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: range,
+      dimensions: [{ name: 'date' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: keyEventName, matchType: 'EXACT' } } },
+    }),
+  ])
+
+  const toMap = (rows: any[] | null | undefined) => {
+    const m = new Map<string, number>()
+    for (const r of rows ?? []) m.set(r.dimensionValues?.[0]?.value ?? '', parseInt(r.metricValues?.[0]?.value ?? '0'))
+    return m
+  }
+  const s = toMap(sessions.rows)
+  const e = toMap(events.rows)
+  const out: DailyHealthRow[] = []
+  const day = new Date(start)
+  while (fmt(day) <= fmt(end)) {
+    const key = fmt(day).replace(/-/g, '')
+    out.push({ date: key, sessions: s.get(key) ?? 0, keyActions: e.get(key) ?? 0 })
+    day.setDate(day.getDate() + 1)
+  }
+  return out
+}

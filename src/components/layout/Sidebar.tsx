@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { signOut } from 'next-auth/react'
+import ClubBrand from './ClubBrand'
 
 const navItems = [
   { label: 'Overview',    href: '/dashboard' },
@@ -25,12 +26,7 @@ function NavContent({ isAdmin, pathname, viewAs, onNav }: { isAdmin?: boolean; p
     <>
       {/* Logo */}
       <div className="px-6 py-6 border-b border-white/10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-pgm-green flex items-center justify-center shrink-0">
-            <span className="text-white text-xs font-bold">PGM</span>
-          </div>
-          <span className="text-white font-semibold text-sm leading-tight">Pure Golf Media</span>
-        </div>
+        <ClubBrand />
       </div>
 
       {/* Nav */}

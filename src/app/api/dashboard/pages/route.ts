@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { demoResponse } from '@/lib/demo'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchGA4LandingPages } from '@/lib/ga4'
@@ -19,6 +20,10 @@ export async function GET(request: Request) {
   }
 
   const days = Math.min(Math.max(parseInt(url.searchParams.get('days') ?? '30'), 7), 90)
+
+  const demo = await demoResponse(requestedClientId, 'pages', days)
+  if (demo) return demo
+
   const cacheKey = makeCacheKey(requestedClientId, 'pages', `${days}d`)
   const cached = cacheGet<any>(cacheKey)
   if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
