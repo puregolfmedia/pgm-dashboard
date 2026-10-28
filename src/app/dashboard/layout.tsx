@@ -12,7 +12,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="flex min-h-screen bg-[#F8F8F6]">
       <Sidebar isAdmin={user.role === 'ADMIN'} />
-      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
+      <main className="flex-1 overflow-auto pt-14 lg:pt-0 print:pt-0">
         <AdminViewBanner />
         {children}
       </main>

@@ -10,10 +10,19 @@ export async function POST(request: Request) {
   }
 
   const user = session.user as any
-  const { newPassword } = await request.json()
+  const { newPassword, currentPassword } = await request.json()
 
   if (!newPassword || newPassword.length < 8) {
     return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
+  }
+
+  // Changing an existing password (not the first-login reset) needs the current one
+  const record = await prisma.user.findUnique({ where: { id: user.id }, select: { passwordHash: true, passwordResetRequired: true } })
+  if (!record) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!record.passwordResetRequired) {
+    if (!currentPassword || !(await bcrypt.compare(currentPassword, record.passwordHash))) {
+      return NextResponse.json({ error: 'Your current password is incorrect' }, { status: 400 })
+    }
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12)

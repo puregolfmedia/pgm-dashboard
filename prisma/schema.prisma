@@ -140,3 +140,23 @@ model DataSourceConfig {
 
   updatedAt                DateTime @updatedAt
 }
+
+// Shared cache of data fetched from Google, Meta and Mailchimp (see src/lib/cache.ts)
+model CacheEntry {
+  key       String   @id
+  value     Json
+  fetchedAt DateTime
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+// "Forgot password" requests from the login page, handled by Pure Golf Media
+model PasswordHelpRequest {
+  id        String    @id @default(cuid())
+  username  String
+  createdAt DateTime  @default(now())
+  handledAt DateTime?
+
+  @@index([handledAt])
+}

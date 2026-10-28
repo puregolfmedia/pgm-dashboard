@@ -66,4 +66,5 @@ export const pageHelp: Record<string, string> = {
   'Pages': 'Which pages bring people in and lead to bookings.',
   'UTMs': 'Visits from tracked links (e.g. in emails or ads), so you can see which specific campaign brought people in.',
   'Google Search': 'How your website performs in Google search results (not ads).',
+  'Monthly report': 'A plain-English summary of the month, ready to print or save as a PDF.',
 }

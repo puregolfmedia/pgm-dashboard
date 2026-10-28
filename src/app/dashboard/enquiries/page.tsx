@@ -7,15 +7,12 @@ import MetricCard from '@/components/dashboard/MetricCard'
 import GoalProgressList from '@/components/dashboard/GoalProgressList'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import FilterBar, { useDateRange, compareText } from '@/components/dashboard/FilterBar'
+import { pctChange } from '@/lib/utils'
 import type { GoalProgress } from '@/lib/goals'
 
 const gbp = (n: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n)
 
-const PERIODS = [
-  { label: 'Last 30 days', value: 30 },
-  { label: 'Last 90 days', value: 90 },
-  { label: 'Last 12 months', value: 366 },
-]
 
 const STATUS_LABEL: Record<string, string> = { NEW: 'New', CONTACTED: 'Contacted', BOOKED: 'Booked', LOST: 'Not going ahead' }
 const STATUS_STYLE: Record<string, string> = {
@@ -29,7 +26,7 @@ const emptyForm = { name: '', email: '', phone: '', category: '', eventDate: '',
 
 export default function EnquiriesPage() {
   const { clientId, isAdmin, ready, missingClientMessage } = useActiveClient()
-  const [days, setDays] = useState(30)
+  const [range, setRange, rangeQs] = useDateRange()
   const [data, setData] = useState<any>(null)
   const [goals, setGoals] = useState<GoalProgress[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,13 +40,13 @@ export default function EnquiriesPage() {
 
   const load = useCallback(() => {
     if (!clientId) return
-    fetch(`/api/dashboard/enquiries?clientId=${clientId}&days=${days}`)
+    fetch(`/api/dashboard/enquiries?clientId=${clientId}&${rangeQs}`)
       .then((r) => r.json())
       .then((res) => { if (res.error) setError(res.error); else { setData(res.data); setError(null) } })
       .catch(() => setError('Failed to load enquiries'))
       .finally(() => setLoading(false))
     fetch(`/api/dashboard/goals?clientId=${clientId}`).then((r) => r.json()).then((r) => setGoals(r.data ?? [])).catch(() => {})
-  }, [clientId, days])
+  }, [clientId, rangeQs])
 
   useEffect(() => {
     if (!clientId) {
@@ -93,22 +90,14 @@ export default function EnquiriesPage() {
     (statusFilter === 'ALL' || e.status === statusFilter) &&
     (categoryFilter === 'ALL' || (e.category ?? '') === categoryFilter))
   const s = data?.summary
+  const p = data?.previous
 
   return (
     <>
       <DashboardHeader title="Enquiries" />
       <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            {PERIODS.map((p) => (
-              <button key={p.value} onClick={() => setDays(p.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${days === p.value
-                  ? 'bg-pgm-green text-white'
-                  : 'bg-white border border-gray-200 text-gray-500 hover:border-pgm-green hover:text-pgm-green'}`}>
-                {p.label}
-              </button>
-            ))}
-          </div>
+          <FilterBar value={range} onChange={setRange} />
           {clientId && <Button size="sm" onClick={() => setAdding((a) => !a)}>{adding ? 'Cancel' : '+ Add enquiry'}</Button>}
         </div>
 
@@ -142,10 +131,10 @@ export default function EnquiriesPage() {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <MetricCard label="Enquiries received" value={s ? String(s.total) : '—'} change={0} loading={loading} />
+              <MetricCard label="Enquiries received" value={s ? String(s.total) : '—'} change={s && p ? pctChange(s.total, p.total) : 0} changePeriod={compareText(range)} loading={loading} />
               <MetricCard label="Still to follow up" help="New or contacted enquiries that aren’t booked or closed yet." value={s ? String(s.open) : '—'} change={0} loading={loading} />
-              <MetricCard label="Enquiries booked" value={s ? `${s.booked} (${s.conversionRate}%)` : '—'} change={0} loading={loading} />
-              <MetricCard label="Booked revenue" value={s ? gbp(s.bookedValue) : '—'} change={0} loading={loading} />
+              <MetricCard label="Enquiries booked" value={s ? `${s.booked} (${s.conversionRate}%)` : '—'} change={s && p ? pctChange(s.booked, p.booked) : 0} changePeriod={compareText(range)} loading={loading} />
+              <MetricCard label="Booked revenue" value={s ? gbp(s.bookedValue) : '—'} change={s && p ? pctChange(s.bookedValue, p.bookedValue) : 0} changePeriod={compareText(range)} loading={loading} />
             </div>
 
             <GoalProgressList goals={goals} />

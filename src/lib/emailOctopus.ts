@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { decrypt } from './crypto'
+import { toRange, type DateRange } from './dateRange'
 
 const BASE = 'https://emailoctopus.com/api/1.6'
 
@@ -27,11 +28,12 @@ export interface EmailMetrics {
 
 export async function fetchEmailOctopusMetrics(
   encryptedApiKey: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<EmailMetrics> {
   const apiKey = decrypt(encryptedApiKey)
-  const since = new Date()
-  since.setDate(since.getDate() - days)
+  const range = toRange(days)
+  const since = new Date(`${range.start}T00:00:00Z`)
+  const until = new Date(`${range.end}T23:59:59Z`)
 
   // Fetch recent campaigns
   const res = await axios.get(`${BASE}/campaigns`, {
@@ -43,7 +45,7 @@ export async function fetchEmailOctopusMetrics(
   // Filter to the requested date window
   const campaigns = allCampaigns.filter((c: any) => {
     const sentAt = c.sent_at ? new Date(c.sent_at) : null
-    return sentAt && sentAt >= since
+    return sentAt && sentAt >= since && sentAt <= until
   })
 
   if (campaigns.length === 0) {

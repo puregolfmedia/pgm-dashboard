@@ -1,6 +1,7 @@
 import DashboardHeader from '@/components/layout/DashboardHeader'
 import Link from 'next/link'
 import AllClientsOverview from '@/components/admin/AllClientsOverview'
+import PasswordHelpRequests from '@/components/admin/PasswordHelpRequests'
 
 export default function AdminPage() {
   return (
@@ -17,6 +18,7 @@ export default function AdminPage() {
             + New client
           </Link>
         </div>
+        <PasswordHelpRequests />
         <AllClientsOverview />
       </div>
     </>

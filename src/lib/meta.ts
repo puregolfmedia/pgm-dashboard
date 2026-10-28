@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { decrypt } from './crypto'
+import { toRange, type DateRange } from './dateRange'
 
 const META_API_VERSION = 'v19.0'
 const BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`
@@ -45,29 +46,20 @@ function parseInsights(data: any): MetaInsights {
   }
 }
 
-function formatDateRange(daysAgo: number, daysAgoEnd = 0) {
-  const end = new Date()
-  end.setDate(end.getDate() - daysAgoEnd)
-  const start = new Date()
-  start.setDate(start.getDate() - daysAgo)
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
-  return { since: fmt(start), until: fmt(end) }
-}
-
 export async function fetchMetaOverview(
   adAccountId: string,
   encryptedToken: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<MetaInsightsPair> {
   const token = decrypt(encryptedToken)
   const fields = 'spend,impressions,clicks,ctr,cpm,cost_per_unique_click,purchase_roas'
 
   const [currentRes, previousRes] = await Promise.all([
     axios.get(`${BASE_URL}/act_${adAccountId}/insights`, {
-      params: { access_token: token, fields, time_range: JSON.stringify(formatDateRange(days)), level: 'account' },
+      params: { access_token: token, fields, time_range: JSON.stringify({ since: toRange(days).start, until: toRange(days).end }), level: 'account' },
     }),
     axios.get(`${BASE_URL}/act_${adAccountId}/insights`, {
-      params: { access_token: token, fields, time_range: JSON.stringify(formatDateRange(days * 2, days)), level: 'account' },
+      params: { access_token: token, fields, time_range: JSON.stringify({ since: toRange(days).prevStart, until: toRange(days).prevEnd }), level: 'account' },
     }),
   ])
 
@@ -80,11 +72,11 @@ export async function fetchMetaOverview(
 export async function fetchMetaCampaigns(
   adAccountId: string,
   encryptedToken: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<MetaCampaign[]> {
   const token = decrypt(encryptedToken)
   const fields = 'campaign_name,spend,impressions,clicks,ctr,purchase_roas'
-  const { since, until } = formatDateRange(days)
+  const { start: since, end: until } = toRange(days)
 
   const res = await axios.get(`${BASE_URL}/act_${adAccountId}/insights`, {
     params: {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveClientAccess } from '@/lib/access'
+import { rangeFromParams } from '@/lib/dateRange'
 
 // List a club's enquiries (with a summary) and add one by hand.
 
@@ -8,16 +9,21 @@ export async function GET(request: Request) {
   const access = await resolveClientAccess(request)
   if (access instanceof NextResponse) return access
 
-  const url = new URL(request.url)
-  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') ?? '30'), 1), 366)
-  const since = new Date()
-  since.setDate(since.getDate() - days)
+  const range = rangeFromParams(new URL(request.url).searchParams)
+  const between = (from: string, to: string) => ({ gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T23:59:59.999Z`) })
 
-  const enquiries = await prisma.enquiry.findMany({
-    where: { clientId: access.clientId, receivedAt: { gte: since } },
-    orderBy: { receivedAt: 'desc' },
-    take: 500,
-  })
+  const [enquiries, previous] = await Promise.all([
+    prisma.enquiry.findMany({
+      where: { clientId: access.clientId, receivedAt: between(range.start, range.end) },
+      orderBy: { receivedAt: 'desc' },
+      take: 1000,
+    }),
+    prisma.enquiry.findMany({
+      where: { clientId: access.clientId, receivedAt: between(range.prevStart, range.prevEnd) },
+      select: { status: true, bookedValue: true },
+    }),
+  ])
+  const prevBooked = previous.filter((e) => e.status === 'BOOKED')
 
   const booked = enquiries.filter((e) => e.status === 'BOOKED')
   const bookedValue = booked.reduce((s, e) => s + (e.bookedValue ?? 0), 0)
@@ -38,6 +44,12 @@ export async function GET(request: Request) {
         conversionRate: enquiries.length > 0 ? Math.round((booked.length / enquiries.length) * 1000) / 10 : 0,
         open: enquiries.filter((e) => e.status === 'NEW' || e.status === 'CONTACTED').length,
       },
+      previous: {
+        total: previous.length,
+        booked: prevBooked.length,
+        bookedValue: prevBooked.reduce((s, e) => s + (e.bookedValue ?? 0), 0),
+      },
+      range: { start: range.start, end: range.end, compareLabel: range.compareLabel },
       categories,
       enquiries,
     },

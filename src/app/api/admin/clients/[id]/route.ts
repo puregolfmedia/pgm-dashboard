@@ -96,7 +96,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   // Invalidate cache for this client
-  cacheInvalidate(params.id)
+  await cacheInvalidate(params.id)
 
   return NextResponse.json({ data: { ok: true }, error: null })
 }

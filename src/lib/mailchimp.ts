@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { decrypt } from './crypto'
+import { toRange, type DateRange } from './dateRange'
 
 export interface EmailCampaignSummary {
   id: string
@@ -34,15 +35,16 @@ function datacenterFromApiKey(apiKey: string): string {
 export async function fetchMailchimpMetrics(
   encryptedApiKey: string,
   listId: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<EmailMetrics> {
   const apiKey = decrypt(encryptedApiKey)
   const dc = datacenterFromApiKey(apiKey)
   const base = `https://${dc}.api.mailchimp.com/3.0`
   const auth = { username: 'anystring', password: apiKey }
 
-  const since = new Date()
-  since.setDate(since.getDate() - days)
+  const range = toRange(days)
+  const since = new Date(`${range.start}T00:00:00Z`)
+  const until = new Date(`${range.end}T23:59:59Z`)
 
   // Fetch recent sent campaigns for this audience
   const res = await axios.get(`${base}/campaigns`, {
@@ -61,7 +63,7 @@ export async function fetchMailchimpMetrics(
 
   const campaigns = allCampaigns.filter((c: any) => {
     const sentAt = c.send_time ? new Date(c.send_time) : null
-    return sentAt && sentAt >= since
+    return sentAt && sentAt >= since && sentAt <= until
   })
 
   if (campaigns.length === 0) {

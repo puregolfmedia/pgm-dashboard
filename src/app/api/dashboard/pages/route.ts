@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { rangeFromParams } from '@/lib/dateRange'
 import { demoResponse } from '@/lib/demo'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -19,13 +20,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'Forbidden' }, { status: 403 })
   }
 
-  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') ?? '30'), 7), 90)
+  const range = rangeFromParams(url.searchParams)
+  const days = range.days
 
   const demo = await demoResponse(requestedClientId, 'pages', days)
   if (demo) return demo
 
-  const cacheKey = makeCacheKey(requestedClientId, 'pages', `${days}d`)
-  const cached = cacheGet<any>(cacheKey)
+  const cacheKey = makeCacheKey(requestedClientId, 'pages', range.key)
+  const cached = await cacheGet<any>(cacheKey)
   if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
 
   const config = await prisma.dataSourceConfig.findUnique({ where: { clientId: requestedClientId } })
@@ -38,9 +40,9 @@ export async function GET(request: Request) {
       config.ga4PropertyId,
       config.ga4ServiceAccountJson,
       config.ga4BookingEventName ?? 'generate_lead',
-      days
+      range
     )
-    const result = cacheSet(cacheKey, pages)
+    const result = await cacheSet(cacheKey, pages)
     return NextResponse.json({ data: pages, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof pages>)
   } catch (err) {
     console.error('[pages]', err)

@@ -71,7 +71,7 @@ const reason = (err: any) =>
 export async function getClientHealth(clientId: string, { fresh = false } = {}): Promise<ClientHealth> {
   const cacheKey = `${clientId}:health`
   if (!fresh) {
-    const cached = cacheGet<ClientHealth>(cacheKey)
+    const cached = await cacheGet<ClientHealth>(cacheKey)
     if (cached) return cached.data
   }
 
@@ -136,6 +136,6 @@ export async function getClientHealth(clientId: string, { fresh = false } = {}):
     : 'ok'
 
   const health: ClientHealth = { clientId, name: client.name, level, issues, checkedAt: new Date().toISOString(), stats }
-  cacheSet(cacheKey, health)
+  await cacheSet(cacheKey, health)
   return health
 }
