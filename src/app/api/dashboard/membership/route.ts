@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { rangeFromParams } from '@/lib/dateRange'
+import { demoResponse } from '@/lib/demo'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchGA4Overview, fetchGA4DailyBookings, fetchGA4TrafficSources } from '@/lib/ga4'
@@ -14,7 +16,8 @@ export async function GET(request: Request) {
   const clientId = user.clientId
   const url = new URL(request.url)
   const requestedClientId = url.searchParams.get('clientId') ?? clientId
-  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') ?? '30'), 7), 90)
+  const range = rangeFromParams(url.searchParams)
+  const days = range.days
 
   if (user.role !== 'ADMIN' && requestedClientId !== clientId) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'Forbidden' }, { status: 403 })
@@ -24,8 +27,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'No client associated' }, { status: 400 })
   }
 
-  const cacheKey = makeCacheKey(requestedClientId, 'membership', `${days}d`)
-  const cached = cacheGet<any>(cacheKey)
+  const demo = await demoResponse(requestedClientId, 'membership', days)
+  if (demo) return demo
+
+  const cacheKey = makeCacheKey(requestedClientId, 'membership', range.key)
+  const cached = await cacheGet<any>(cacheKey)
   if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
 
   const config = await prisma.dataSourceConfig.findUnique({ where: { clientId: requestedClientId } })
@@ -37,29 +43,30 @@ export async function GET(request: Request) {
 
   try {
     const [overview, trend, sources] = await Promise.all([
-      fetchGA4Overview(config.ga4PropertyId, config.ga4ServiceAccountJson, membershipEvent, days),
-      fetchGA4DailyBookings(config.ga4PropertyId, config.ga4ServiceAccountJson, membershipEvent, days),
-      fetchGA4TrafficSources(config.ga4PropertyId, config.ga4ServiceAccountJson, days),
+      fetchGA4Overview(config.ga4PropertyId, config.ga4ServiceAccountJson, membershipEvent, range),
+      fetchGA4DailyBookings(config.ga4PropertyId, config.ga4ServiceAccountJson, membershipEvent, range),
+      fetchGA4TrafficSources(config.ga4PropertyId, config.ga4ServiceAccountJson, range),
     ])
 
     const data = {
+      label: config.membershipGoalLabel || null,
       metrics: {
         enquiries: {
           value: formatNumber(overview.current.bookingStarts),
           change: pctChange(overview.current.bookingStarts, overview.previous.bookingStarts),
-          changePeriod: `vs prior ${days} days`,
+          changePeriod: range.compareLabel,
         },
         sessions: {
           value: formatNumber(overview.current.sessions),
           change: pctChange(overview.current.sessions, overview.previous.sessions),
-          changePeriod: `vs prior ${days} days`,
+          changePeriod: range.compareLabel,
         },
         conversionRate: {
           value: overview.current.sessions > 0
             ? `${((overview.current.bookingStarts / overview.current.sessions) * 100).toFixed(2)}%`
             : '—',
           change: 0,
-          changePeriod: `last ${days} days`,
+          changePeriod: range.custom ? 'selected dates' : `last ${days} days`,
         },
       },
       trend,
@@ -67,7 +74,7 @@ export async function GET(request: Request) {
       eventName: membershipEvent,
     }
 
-    const result = cacheSet(cacheKey, data)
+    const result = await cacheSet(cacheKey, data)
     return NextResponse.json({ data, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
   } catch (err) {
     console.error('[membership]', err)

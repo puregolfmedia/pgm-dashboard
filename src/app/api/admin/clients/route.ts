@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { seedDemoClub } from '@/lib/demoSeed'
 
 export async function GET() {
   const session = await auth()
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { name, slug, username, password } = body
+  const { name, slug, username, password, isDemo } = body
 
   if (!name || !slug || !username || !password) {
     return NextResponse.json({ data: null, error: 'Missing required fields' }, { status: 400 })
@@ -38,11 +39,14 @@ export async function POST(request: Request) {
     data: {
       name,
       slug,
+      isDemo: !!isDemo,
       users: {
         create: { username, passwordHash, role: 'CLIENT', passwordResetRequired: true },
       },
     },
   })
+
+  if (isDemo) await seedDemoClub(client.id)
 
   return NextResponse.json({ data: client, error: null }, { status: 201 })
 }

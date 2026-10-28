@@ -6,6 +6,8 @@ import DashboardHeader from '@/components/layout/DashboardHeader'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Link from 'next/link'
+import ClientExtrasAdmin from './ClientExtrasAdmin'
+import ClientHealthBanner from '@/components/admin/ClientHealthBanner'
 
 export default function EditClientPage() {
   const { id } = useParams<{ id: string }>()
@@ -28,6 +30,10 @@ export default function EditClientPage() {
     mailchimpApiKey: '',
     mailchimpListId: '',
     searchConsoleSiteUrl: '',
+    bookingGoalLabel: '',
+    membershipGoalLabel: '',
+    logoUrl: '',
+    brandColor: '',
   })
 
   const [newPassword, setNewPassword] = useState('')
@@ -38,8 +44,11 @@ export default function EditClientPage() {
       .then((res) => {
         setClient(res.data)
         const cfg = res.data?.dataConfig
+        const branding = { logoUrl: res.data?.logoUrl ?? '', brandColor: res.data?.brandColor ?? '' }
+        setForm((f) => ({ ...f, ...branding }))
         if (cfg) {
           setForm({
+            ...branding,
             ga4PropertyId: cfg.ga4PropertyId ?? '',
             ga4ServiceAccountJson: '',
             ga4BookingEventName: cfg.ga4BookingEventName ?? 'generate_lead',
@@ -50,6 +59,8 @@ export default function EditClientPage() {
             mailchimpApiKey: '',
             mailchimpListId: cfg.mailchimpListId ?? '',
             searchConsoleSiteUrl: cfg.searchConsoleSiteUrl ?? '',
+            bookingGoalLabel: cfg.bookingGoalLabel ?? '',
+            membershipGoalLabel: cfg.membershipGoalLabel ?? '',
           })
         }
         setLoading(false)
@@ -106,6 +117,8 @@ export default function EditClientPage() {
       <DashboardHeader title={client.name} />
       <div className="px-8 py-8 max-w-2xl space-y-6">
 
+        <ClientHealthBanner clientId={id} />
+
         {/* GA4 config */}
         <form onSubmit={handleSave} className="bg-white border border-[#E8E8E8] rounded-2xl p-6 space-y-5">
           <div>
@@ -154,11 +167,25 @@ export default function EditClientPage() {
             onChange={set('ga4BookingEventName')}
           />
           <Input
+            label="What the club calls it"
+            hint="Shown on the dashboard instead of “Booking starts”, e.g. “Christmas enquiries”. Leave empty to keep the default."
+            placeholder="Booking starts"
+            value={form.bookingGoalLabel}
+            onChange={set('bookingGoalLabel')}
+          />
+          <Input
             label="Membership enquiry event name"
             hint="The GA4 event that counts as a membership enquiry (default: membership_enquiry)"
             placeholder="membership_enquiry"
             value={form.ga4MembershipEventName}
             onChange={set('ga4MembershipEventName')}
+          />
+          <Input
+            label="What the club calls it"
+            hint="Shown on the Membership tab instead of “Membership enquiries”. Leave empty to keep the default."
+            placeholder="Membership enquiries"
+            value={form.membershipGoalLabel}
+            onChange={set('membershipGoalLabel')}
           />
 
           <div className="border-t border-gray-100 pt-5">
@@ -261,12 +288,36 @@ export default function EditClientPage() {
             />
           </div>
 
+          <div className="border-t border-gray-100 pt-5">
+            <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Club branding</h2>
+            <p className="text-xs text-gray-400 mb-4">Shown in the club’s dashboard sidebar, so it feels like their own.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-4">
+              <Input
+                label="Logo web address"
+                hint="Right-click the logo on the club’s website → Copy image address. Must start https://"
+                placeholder="https://www.example.co.uk/logo.png"
+                value={form.logoUrl}
+                onChange={set('logoUrl')}
+              />
+              <div>
+                <label htmlFor="brandColor" className="block text-sm font-medium text-pgm-ink mb-1.5">Brand colour</label>
+                <p className="text-xs text-gray-400 mb-1.5">e.g. #084724</p>
+                <div className="flex gap-2 items-center">
+                  <input id="brandColor" value={form.brandColor} onChange={set('brandColor')} placeholder="#084724"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm text-pgm-ink" />
+                  <span aria-hidden className="w-8 h-8 rounded-md border border-gray-200 shrink-0"
+                    style={{ background: /^#[0-9a-fA-F]{6}$/.test(form.brandColor) ? form.brandColor : 'transparent' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
           {saved && <p className="text-sm text-pgm-green bg-green-50 rounded-lg px-3 py-2">✓ Saved successfully</p>}
 
           <div className="flex items-center gap-3">
             <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save config'}</Button>
-            <Link href={`/admin/clients/${id}/view`}>
+            <Link href={`/dashboard?viewAs=${id}`}>
               <Button type="button" variant="secondary">View dashboard →</Button>
             </Link>
             <Link href="/admin" className="ml-auto">
@@ -274,6 +325,8 @@ export default function EditClientPage() {
             </Link>
           </div>
         </form>
+
+        <ClientExtrasAdmin clientId={id} intakeToken={client.intakeToken ?? null} />
 
         {/* Password reset */}
         <form onSubmit={handlePasswordReset} className="bg-white border border-[#E8E8E8] rounded-2xl p-6 space-y-4">

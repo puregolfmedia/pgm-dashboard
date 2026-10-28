@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useActiveClient } from '@/lib/useActiveClient'
 import DashboardHeader from '@/components/layout/DashboardHeader'
-import FilterBar from '@/components/dashboard/FilterBar'
+import FilterBar, { useDateRange, compareText } from '@/components/dashboard/FilterBar'
 import MetricCard from '@/components/dashboard/MetricCard'
 import { pctChange } from '@/lib/utils'
 import { sectionHelp, searchImpressionsHelp } from '@/lib/metricHelp'
@@ -62,7 +62,8 @@ function SearchTable({ title, keyLabel, rows, loading, emptyText }: {
 export default function SeoPage() {
   const { clientId, ready, missingClientMessage } = useActiveClient()
 
-  const [days, setDays] = useState(30)
+  const [range, setRange, rangeQs] = useDateRange()
+  const days = range.days
   const [data, setData] = useState<any>(null)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -75,7 +76,7 @@ export default function SeoPage() {
     }
     setLoading(true)
     setError(null)
-    fetch(`/api/dashboard/seo?clientId=${clientId}&days=${days}`)
+    fetch(`/api/dashboard/seo?clientId=${clientId}&${rangeQs}`)
       .then((r) => r.json())
       .then((res) => {
         if (res.error) setError(res.error)
@@ -83,7 +84,7 @@ export default function SeoPage() {
       })
       .catch(() => setError('Failed to load data'))
       .finally(() => setLoading(false))
-  }, [clientId, ready, missingClientMessage, days])
+  }, [clientId, ready, missingClientMessage, rangeQs])
 
   const lastUpdatedTime = lastUpdated
     ? new Date(lastUpdated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -91,14 +92,14 @@ export default function SeoPage() {
 
   const cur = data?.current
   const prev = data?.previous
-  const period = `vs prior ${days} days`
+  const period = compareText(range)
 
   return (
     <>
       <DashboardHeader title="Google Search" />
       <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <FilterBar days={days} onDaysChange={setDays} />
+          <FilterBar value={range} onChange={setRange} />
           {lastUpdatedTime && <p className="text-xs text-gray-400">Last updated: Today {lastUpdatedTime}</p>}
         </div>
 

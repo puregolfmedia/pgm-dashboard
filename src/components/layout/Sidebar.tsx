@@ -4,9 +4,11 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { signOut } from 'next-auth/react'
+import ClubBrand from './ClubBrand'
 
 const navItems = [
   { label: 'Overview',    href: '/dashboard' },
+  { label: 'Enquiries',   href: '/dashboard/enquiries' },
   { label: 'Visitors',    href: '/dashboard/visitors' },
   { label: 'Membership',  href: '/dashboard/membership' },
   { label: 'Email',       href: '/dashboard/email' },
@@ -14,6 +16,7 @@ const navItems = [
   { label: 'Pages',       href: '/dashboard/pages' },
   { label: 'Google Search', href: '/dashboard/seo' },
   { label: 'UTMs',        href: '/dashboard/utms' },
+  { label: 'Monthly report', href: '/dashboard/report' },
 ]
 
 function NavContent({ isAdmin, pathname, viewAs, onNav }: { isAdmin?: boolean; pathname: string; viewAs?: string | null; onNav?: () => void }) {
@@ -24,12 +27,7 @@ function NavContent({ isAdmin, pathname, viewAs, onNav }: { isAdmin?: boolean; p
     <>
       {/* Logo */}
       <div className="px-6 py-6 border-b border-white/10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-pgm-green flex items-center justify-center shrink-0">
-            <span className="text-white text-xs font-bold">PGM</span>
-          </div>
-          <span className="text-white font-semibold text-sm leading-tight">Pure Golf Media</span>
-        </div>
+        <ClubBrand />
       </div>
 
       {/* Nav */}
@@ -76,7 +74,14 @@ function NavContent({ isAdmin, pathname, viewAs, onNav }: { isAdmin?: boolean; p
       </nav>
 
       {/* Sign out */}
-      <div className="px-3 py-4 border-t border-white/10">
+      <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
+        <Link
+          href="/change-password"
+          onClick={onNav}
+          className="block w-full text-left px-3 py-2 text-sm text-pgm-silver hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+        >
+          Change password
+        </Link>
         <button
           onClick={() => signOut({ callbackUrl: '/login' })}
           className="w-full text-left px-3 py-2 text-sm text-pgm-silver hover:text-white hover:bg-white/5 rounded-lg transition-colors"
@@ -97,7 +102,7 @@ export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-pgm-ink h-14 flex items-center px-4 border-b border-white/10">
+      <div className="lg:hidden print:hidden fixed top-0 left-0 right-0 z-30 bg-pgm-ink h-14 flex items-center px-4 border-b border-white/10">
         <button
           onClick={() => setOpen(true)}
           className="text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
@@ -133,7 +138,7 @@ export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-56 shrink-0 bg-pgm-ink min-h-screen flex-col">
+      <aside className="hidden lg:flex print:hidden w-56 shrink-0 bg-pgm-ink min-h-screen flex-col">
         <NavContent isAdmin={isAdmin} pathname={pathname} viewAs={viewAs} />
       </aside>
     </>

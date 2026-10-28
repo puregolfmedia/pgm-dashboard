@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useActiveClient } from '@/lib/useActiveClient'
 import DashboardHeader from '@/components/layout/DashboardHeader'
-import FilterBar from '@/components/dashboard/FilterBar'
+import FilterBar, { useDateRange, compareText } from '@/components/dashboard/FilterBar'
 import MetricCard from '@/components/dashboard/MetricCard'
 import { sectionHelp } from '@/lib/metricHelp'
 
 export default function PaidSocialPage() {
   const { clientId, ready, missingClientMessage } = useActiveClient()
 
-  const [days, setDays] = useState(30)
+  const [range, setRange, rangeQs] = useDateRange()
+  const days = range.days
   const [data, setData] = useState<any>(null)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -23,7 +24,7 @@ export default function PaidSocialPage() {
     }
     setLoading(true)
     setError(null)
-    fetch(`/api/dashboard/paid-social?clientId=${clientId}&days=${days}`)
+    fetch(`/api/dashboard/paid-social?clientId=${clientId}&${rangeQs}`)
       .then((r) => r.json())
       .then((res) => {
         if (res.error) setError(res.error)
@@ -31,7 +32,7 @@ export default function PaidSocialPage() {
       })
       .catch(() => setError('Failed to load data'))
       .finally(() => setLoading(false))
-  }, [clientId, ready, missingClientMessage, days])
+  }, [clientId, ready, missingClientMessage, rangeQs])
 
   const lastUpdatedTime = lastUpdated
     ? new Date(lastUpdated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -42,7 +43,7 @@ export default function PaidSocialPage() {
       <DashboardHeader title="Paid Social" />
       <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <FilterBar days={days} onDaysChange={setDays} />
+          <FilterBar value={range} onChange={setRange} />
           {lastUpdatedTime && <p className="text-xs text-gray-400">Last updated: Today {lastUpdatedTime}</p>}
         </div>
 
@@ -53,12 +54,12 @@ export default function PaidSocialPage() {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              <MetricCard label="Ad spend" value={data?.metrics.spend.value ?? '—'} change={data?.metrics.spend.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
-              <MetricCard label="Impressions" value={data?.metrics.impressions.value ?? '—'} change={data?.metrics.impressions.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
-              <MetricCard label="Clicks" value={data?.metrics.clicks.value ?? '—'} change={data?.metrics.clicks.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
-              <MetricCard label="CTR" value={data?.metrics.ctr.value ?? '—'} change={data?.metrics.ctr.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
-              <MetricCard label="CPM" value={data?.metrics.cpm.value ?? '—'} change={data?.metrics.cpm.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
-              <MetricCard label="ROAS" value={data?.metrics.roas.value ?? '—'} change={data?.metrics.roas.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
+              <MetricCard label="Ad spend" value={data?.metrics.spend.value ?? '—'} change={data?.metrics.spend.change ?? 0} changePeriod={compareText(range)} loading={loading} />
+              <MetricCard label="Impressions" value={data?.metrics.impressions.value ?? '—'} change={data?.metrics.impressions.change ?? 0} changePeriod={compareText(range)} loading={loading} />
+              <MetricCard label="Clicks" value={data?.metrics.clicks.value ?? '—'} change={data?.metrics.clicks.change ?? 0} changePeriod={compareText(range)} loading={loading} />
+              <MetricCard label="CTR" value={data?.metrics.ctr.value ?? '—'} change={data?.metrics.ctr.change ?? 0} changePeriod={compareText(range)} loading={loading} />
+              <MetricCard label="CPM" value={data?.metrics.cpm.value ?? '—'} change={data?.metrics.cpm.change ?? 0} changePeriod={compareText(range)} loading={loading} />
+              <MetricCard label="ROAS" value={data?.metrics.roas.value ?? '—'} change={data?.metrics.roas.change ?? 0} changePeriod={compareText(range)} loading={loading} />
             </div>
 
             {/* Campaign breakdown */}

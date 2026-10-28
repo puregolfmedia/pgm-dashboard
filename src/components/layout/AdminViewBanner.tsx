@@ -20,7 +20,7 @@ export default function AdminViewBanner() {
   if (!isAdmin || !clientId) return null
 
   return (
-    <div className="bg-amber-50 border-b border-amber-200 px-4 sm:px-8 py-2.5 flex items-center justify-between gap-3">
+    <div className="print:hidden bg-amber-50 border-b border-amber-200 px-4 sm:px-8 py-2.5 flex items-center justify-between gap-3">
       <p className="text-xs text-amber-700 font-medium">
         👁 Admin view — you are seeing this dashboard as <strong>{name ?? '…'}</strong>
       </p>

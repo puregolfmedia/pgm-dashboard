@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useActiveClient } from '@/lib/useActiveClient'
 import DashboardHeader from '@/components/layout/DashboardHeader'
-import FilterBar from '@/components/dashboard/FilterBar'
+import FilterBar, { useDateRange, compareText } from '@/components/dashboard/FilterBar'
 import MetricCard from '@/components/dashboard/MetricCard'
 import BookingsByDayChart from '@/components/dashboard/BookingsByDayChart'
 import TrafficSourceChart from '@/components/dashboard/TrafficSourceChart'
@@ -11,7 +11,8 @@ import TrafficSourceChart from '@/components/dashboard/TrafficSourceChart'
 export default function MembershipPage() {
   const { clientId, ready, missingClientMessage } = useActiveClient()
 
-  const [days, setDays] = useState(30)
+  const [range, setRange, rangeQs] = useDateRange()
+  const days = range.days
   const [data, setData] = useState<any>(null)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -24,7 +25,7 @@ export default function MembershipPage() {
     }
     setLoading(true)
     setError(null)
-    fetch(`/api/dashboard/membership?clientId=${clientId}&days=${days}`)
+    fetch(`/api/dashboard/membership?clientId=${clientId}&${rangeQs}`)
       .then((r) => r.json())
       .then((res) => {
         if (res.error) setError(res.error)
@@ -32,7 +33,7 @@ export default function MembershipPage() {
       })
       .catch(() => setError('Failed to load data'))
       .finally(() => setLoading(false))
-  }, [clientId, ready, missingClientMessage, days])
+  }, [clientId, ready, missingClientMessage, rangeQs])
 
   const lastUpdatedTime = lastUpdated
     ? new Date(lastUpdated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -43,7 +44,7 @@ export default function MembershipPage() {
       <DashboardHeader title="Membership" />
       <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <FilterBar days={days} onDaysChange={setDays} />
+          <FilterBar value={range} onChange={setRange} />
           {lastUpdatedTime && <p className="text-xs text-gray-400">Last updated: Today {lastUpdatedTime}</p>}
         </div>
 
@@ -65,7 +66,7 @@ export default function MembershipPage() {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-              <MetricCard label="Membership enquiries" value={data?.metrics.enquiries.value ?? '—'} change={data?.metrics.enquiries.change ?? 0} changePeriod={data?.metrics.enquiries.changePeriod} loading={loading} />
+              <MetricCard label={data?.label ?? "Membership enquiries"} help={data?.label ? `How many times this was recorded on your website: ${data.label}.` : undefined} value={data?.metrics.enquiries.value ?? '—'} change={data?.metrics.enquiries.change ?? 0} changePeriod={data?.metrics.enquiries.changePeriod} loading={loading} />
               <MetricCard label="Sessions" value={data?.metrics.sessions.value ?? '—'} change={data?.metrics.sessions.change ?? 0} changePeriod={data?.metrics.sessions.changePeriod} loading={loading} />
               <MetricCard label="Enquiry rate" value={data?.metrics.conversionRate.value ?? '—'} change={0} changePeriod={data?.metrics.conversionRate.changePeriod} loading={loading} />
             </div>
@@ -78,7 +79,7 @@ export default function MembershipPage() {
                 </>
               ) : (
                 <>
-                  <BookingsByDayChart data={data?.trend ?? []} />
+                  <BookingsByDayChart data={data?.trend ?? []} label={data?.label ?? 'Membership enquiries'} />
                   <TrafficSourceChart data={data?.sources ?? []} />
                 </>
               )}

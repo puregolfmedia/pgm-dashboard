@@ -42,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const body = await request.json()
   const { ga4PropertyId, ga4ServiceAccountJson, ga4BookingEventName, ga4MembershipEventName,
           metaAdAccountId, metaAccessToken, emailOctopusApiKey,
-          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, newPassword } = body
+          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, bookingGoalLabel, membershipGoalLabel, logoUrl, brandColor, newPassword } = body
 
   // Handle password reset
   if (newPassword) {
@@ -50,6 +50,25 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     await prisma.user.updateMany({
       where: { clientId: params.id, role: 'CLIENT' },
       data: { passwordHash, passwordResetRequired: true },
+    })
+  }
+
+  // Branding
+  if (logoUrl !== undefined || brandColor !== undefined) {
+    const logo = typeof logoUrl === 'string' ? logoUrl.trim() : ''
+    const colour = typeof brandColor === 'string' ? brandColor.trim() : ''
+    if (logo && !/^https:\/\/[^\s"'<>]+$/.test(logo)) {
+      return NextResponse.json({ data: null, error: 'The logo must be a full https:// web address' }, { status: 400 })
+    }
+    if (colour && !/^#[0-9a-fA-F]{6}$/.test(colour)) {
+      return NextResponse.json({ data: null, error: 'The brand colour must look like #084724' }, { status: 400 })
+    }
+    await prisma.client.update({
+      where: { id: params.id },
+      data: {
+        ...(logoUrl !== undefined && { logoUrl: logo || null }),
+        ...(brandColor !== undefined && { brandColor: colour || null }),
+      },
     })
   }
 
@@ -64,6 +83,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (emailOctopusApiKey) configData.emailOctopusApiKey = encrypt(emailOctopusApiKey)
   if (mailchimpListId !== undefined) configData.mailchimpListId = mailchimpListId || null
   if (mailchimpApiKey) configData.mailchimpApiKey = encrypt(mailchimpApiKey)
+  if (bookingGoalLabel !== undefined) configData.bookingGoalLabel = bookingGoalLabel.trim().slice(0, 60) || null
+  if (membershipGoalLabel !== undefined) configData.membershipGoalLabel = membershipGoalLabel.trim().slice(0, 60) || null
   if (searchConsoleSiteUrl !== undefined) configData.searchConsoleSiteUrl = searchConsoleSiteUrl.trim() || null
 
   if (Object.keys(configData).length > 0) {
@@ -75,7 +96,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   // Invalidate cache for this client
-  cacheInvalidate(params.id)
+  await cacheInvalidate(params.id)
 
   return NextResponse.json({ data: { ok: true }, error: null })
 }

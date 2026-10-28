@@ -1,5 +1,6 @@
 import { BetaAnalyticsDataClient } from '@google-analytics/data'
 import { decrypt } from './crypto'
+import { toRange, type DateRange } from './dateRange'
 import type { DailyBooking, LandingPage, TrafficSource } from '@/types/dashboard'
 
 function getClient(encryptedServiceAccountJson: string): BetaAnalyticsDataClient {
@@ -24,24 +25,18 @@ export async function fetchGA4Overview(
   propertyId: string,
   encryptedServiceAccountJson: string,
   bookingEventName: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<GA4OverviewResult> {
   const client = getClient(encryptedServiceAccountJson)
 
-  const end = new Date()
-  const midpoint = new Date()
-  midpoint.setDate(end.getDate() - days)
-  const start = new Date()
-  start.setDate(end.getDate() - days * 2)
-
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
+  const r = toRange(days)
 
   // Also fetch booking event count separately (event count filtered by name)
   const [bookingResponse] = await client.runReport({
     property: `properties/${propertyId}`,
     dateRanges: [
-      { startDate: fmt(midpoint), endDate: fmt(end), name: 'current' },
-      { startDate: fmt(start), endDate: fmt(midpoint), name: 'previous' },
+      { startDate: r.start, endDate: r.end, name: 'current' },
+      { startDate: r.prevStart, endDate: r.prevEnd, name: 'previous' },
     ],
     metrics: [{ name: 'eventCount' }],
     dimensionFilter: {
@@ -55,8 +50,8 @@ export async function fetchGA4Overview(
   const [sessionsResponse] = await client.runReport({
     property: `properties/${propertyId}`,
     dateRanges: [
-      { startDate: fmt(midpoint), endDate: fmt(end), name: 'current' },
-      { startDate: fmt(start), endDate: fmt(midpoint), name: 'previous' },
+      { startDate: r.start, endDate: r.end, name: 'current' },
+      { startDate: r.prevStart, endDate: r.prevEnd, name: 'previous' },
     ],
     metrics: [{ name: 'sessions' }, { name: 'bounceRate' }, { name: 'averageSessionDuration' }],
   })
@@ -87,13 +82,11 @@ export async function fetchGA4DailyBookings(
   propertyId: string,
   encryptedServiceAccountJson: string,
   bookingEventName: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<DailyBooking[]> {
   const client = getClient(encryptedServiceAccountJson)
-  const end = new Date()
-  const start = new Date()
-  start.setDate(end.getDate() - days)
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
+  const { start, end } = toRange(days)
+  const fmt = (d: string) => d
 
   const [response] = await client.runReport({
     property: `properties/${propertyId}`,
@@ -117,11 +110,12 @@ export async function fetchGA4DailyBookings(
 
   // GA4 leaves out days with no bookings, which made the chart skip over them.
   // Fill every day from the first recorded booking to today, using 0 where empty.
-  const ymd = (d: Date) => fmt(d).replace(/-/g, '')
+  const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '')
   const first = Array.from(counts.keys()).sort()[0]
   const day = new Date(`${first.slice(0, 4)}-${first.slice(4, 6)}-${first.slice(6, 8)}T12:00:00Z`)
+  const last = end.replace(/-/g, '')
   const result: DailyBooking[] = []
-  while (ymd(day) <= ymd(end)) {
+  while (ymd(day) <= last) {
     result.push({ date: ymd(day), bookings: counts.get(ymd(day)) ?? 0 })
     day.setUTCDate(day.getUTCDate() + 1)
   }
@@ -131,13 +125,11 @@ export async function fetchGA4DailyBookings(
 export async function fetchGA4TrafficSources(
   propertyId: string,
   encryptedServiceAccountJson: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<TrafficSource[]> {
   const client = getClient(encryptedServiceAccountJson)
-  const end = new Date()
-  const start = new Date()
-  start.setDate(end.getDate() - days)
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
+  const { start, end } = toRange(days)
+  const fmt = (d: string) => d
 
   const [response] = await client.runReport({
     property: `properties/${propertyId}`,
@@ -158,13 +150,11 @@ export async function fetchGA4LandingPages(
   propertyId: string,
   encryptedServiceAccountJson: string,
   bookingEventName: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<LandingPage[]> {
   const client = getClient(encryptedServiceAccountJson)
-  const end = new Date()
-  const start = new Date()
-  start.setDate(end.getDate() - days)
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
+  const { start, end } = toRange(days)
+  const fmt = (d: string) => d
 
   const notSetFilter = {
     notExpression: {
@@ -240,13 +230,11 @@ export async function fetchGA4UTMs(
   propertyId: string,
   encryptedServiceAccountJson: string,
   bookingEventName: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<GA4UTMRow[]> {
   const client = getClient(encryptedServiceAccountJson)
-  const end = new Date()
-  const start = new Date()
-  start.setDate(end.getDate() - days)
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
+  const { start, end } = toRange(days)
+  const fmt = (d: string) => d
 
   const [sessions, bookings] = await Promise.all([
     client.runReport({
@@ -321,13 +309,11 @@ export interface GA4VisitorMetrics {
 export async function fetchGA4Visitors(
   propertyId: string,
   encryptedServiceAccountJson: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<GA4VisitorMetrics> {
   const client = getClient(encryptedServiceAccountJson)
-  const end = new Date()
-  const start = new Date()
-  start.setDate(end.getDate() - days)
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
+  const { start, end } = toRange(days)
+  const fmt = (d: string) => d
 
   const [summary, devices, channels] = await Promise.all([
     client.runReport({
@@ -374,4 +360,58 @@ export async function fetchGA4Visitors(
       users: parseInt(r.metricValues?.[0]?.value ?? '0'),
     })),
   }
+}
+
+export interface DailyHealthRow {
+  date: string // YYYYMMDD
+  sessions: number
+  keyActions: number
+}
+
+/** Daily sessions and key-action counts for the last `days` days (today excluded), with empty days as 0. */
+export async function fetchGA4DailyHealth(
+  propertyId: string,
+  encryptedServiceAccountJson: string,
+  keyEventName: string,
+  days = 21
+): Promise<DailyHealthRow[]> {
+  const client = getClient(encryptedServiceAccountJson)
+  const end = new Date()
+  end.setDate(end.getDate() - 1)
+  const start = new Date(end)
+  start.setDate(end.getDate() - (days - 1))
+  const fmt = (d: Date) => d.toISOString().split('T')[0]
+  const range = [{ startDate: fmt(start), endDate: fmt(end) }]
+
+  const [[sessions], [events]] = await Promise.all([
+    client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: range,
+      dimensions: [{ name: 'date' }],
+      metrics: [{ name: 'sessions' }],
+    }),
+    client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: range,
+      dimensions: [{ name: 'date' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: keyEventName, matchType: 'EXACT' } } },
+    }),
+  ])
+
+  const toMap = (rows: any[] | null | undefined) => {
+    const m = new Map<string, number>()
+    for (const r of rows ?? []) m.set(r.dimensionValues?.[0]?.value ?? '', parseInt(r.metricValues?.[0]?.value ?? '0'))
+    return m
+  }
+  const s = toMap(sessions.rows)
+  const e = toMap(events.rows)
+  const out: DailyHealthRow[] = []
+  const day = new Date(start)
+  while (fmt(day) <= fmt(end)) {
+    const key = fmt(day).replace(/-/g, '')
+    out.push({ date: key, sessions: s.get(key) ?? 0, keyActions: e.get(key) ?? 0 })
+    day.setDate(day.getDate() + 1)
+  }
+  return out
 }
