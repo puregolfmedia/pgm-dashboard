@@ -7,6 +7,11 @@ import TrafficSourceChart from '@/components/dashboard/TrafficSourceChart'
 import TopLandingPagesTable from '@/components/dashboard/TopLandingPagesTable'
 import FilterBar from '@/components/dashboard/FilterBar'
 import Link from 'next/link'
+import GoalProgressList from '@/components/dashboard/GoalProgressList'
+import type { GoalProgress } from '@/lib/goals'
+import type { ChartNote } from '@/components/dashboard/BookingsByDayChart'
+
+const gbp = (n: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n)
 
 interface OverviewContentProps {
   clientId: string | null
@@ -19,6 +24,32 @@ export default function OverviewContent({ clientId, isAdmin }: OverviewContentPr
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [goals, setGoals] = useState<GoalProgress[]>([])
+  const [notes, setNotes] = useState<ChartNote[]>([])
+  const [enquiries, setEnquiries] = useState<any>(null)
+
+  // Goals, "what we did" notes and the enquiries summary come from our own
+  // database, so they show even if Google Analytics is down or not set up.
+  useEffect(() => {
+    if (!clientId) return
+    const q = `clientId=${clientId}&days=${days}`
+    fetch(`/api/dashboard/goals?clientId=${clientId}`).then((r) => r.json()).then((r) => setGoals(r.data ?? [])).catch(() => {})
+    fetch(`/api/dashboard/notes?${q}`).then((r) => r.json()).then((r) => setNotes(r.data ?? [])).catch(() => {})
+    fetch(`/api/dashboard/enquiries?${q}`).then((r) => r.json()).then((r) => setEnquiries(r.data?.summary ?? null)).catch(() => {})
+  }, [clientId, days])
+
+  const extras = (
+    <>
+      <GoalProgressList goals={goals} />
+      {enquiries && enquiries.total > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <MetricCard label="Enquiries received" value={String(enquiries.total)} change={0} changePeriod={`last ${days} days`} />
+          <MetricCard label="Enquiries booked" value={`${enquiries.booked} (${enquiries.conversionRate}%)`} change={0} changePeriod={`last ${days} days`} />
+          <MetricCard label="Booked revenue" value={gbp(enquiries.bookedValue)} change={0} changePeriod={`last ${days} days`} />
+        </div>
+      )}
+    </>
+  )
 
   useEffect(() => {
     if (!clientId && !isAdmin) { setError('No client associated with this account'); setLoading(false); return }
@@ -54,7 +85,8 @@ export default function OverviewContent({ clientId, isAdmin }: OverviewContentPr
   if (error) {
     const isNotConfigured = error.includes('not configured') || error.includes('Data source')
     return (
-      <div className="px-4 sm:px-8 py-8">
+      <div className="px-4 sm:px-8 py-8 space-y-4 sm:space-y-6">
+        {extras}
         <div className={`border rounded-2xl p-6 text-center ${isNotConfigured ? 'bg-white border-[#E8E8E8]' : 'bg-amber-50 border-amber-100'}`}>
           <p className={`text-sm font-medium mb-1 ${isNotConfigured ? 'text-pgm-ink' : 'text-amber-800'}`}>
             {isNotConfigured ? 'Data not yet connected' : 'Data temporarily unavailable'}
@@ -71,6 +103,8 @@ export default function OverviewContent({ clientId, isAdmin }: OverviewContentPr
   }
 
   const metrics = data?.metrics
+  const customLabel: string | null = data?.labels?.booking ?? null
+  const bookingLabel = customLabel ?? 'Booking starts'
   const lastUpdatedTime = lastUpdated
     ? new Date(lastUpdated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
     : null
@@ -94,11 +128,13 @@ export default function OverviewContent({ clientId, isAdmin }: OverviewContentPr
         </div>
       )}
 
+      {extras}
+
       {/* Metric cards — row 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <MetricCard label="Sessions" value={metrics?.sessions.value ?? '—'} change={metrics?.sessions.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
-        <MetricCard label="Booking starts" value={metrics?.bookingStarts.value ?? '—'} change={metrics?.bookingStarts.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
-        <MetricCard label="Cost / booking start" value={metrics?.costPerBooking.value ?? '—'} change={metrics?.costPerBooking.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
+        <MetricCard label={bookingLabel} help={customLabel ? `Times a visitor did this on your website: ${bookingLabel.toLowerCase()}.` : undefined} value={metrics?.bookingStarts.value ?? '—'} change={metrics?.bookingStarts.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
+        <MetricCard label={customLabel ? `Cost per ${bookingLabel.toLowerCase()}` : 'Cost / booking start'} help={customLabel ? `Ad spend divided by ${bookingLabel.toLowerCase()}.` : undefined} value={metrics?.costPerBooking.value ?? '—'} change={metrics?.costPerBooking.change ?? 0} changePeriod={`vs prior ${days} days`} loading={loading} />
       </div>
 
       {/* Metric cards — row 2 */}
@@ -117,7 +153,7 @@ export default function OverviewContent({ clientId, isAdmin }: OverviewContentPr
           </>
         ) : (
           <>
-            <BookingsByDayChart data={data?.dailyBookings ?? []} />
+            <BookingsByDayChart data={data?.dailyBookings ?? []} label={bookingLabel} notes={notes} />
             <TrafficSourceChart data={data?.trafficSources ?? []} />
           </>
         )}
@@ -127,7 +163,7 @@ export default function OverviewContent({ clientId, isAdmin }: OverviewContentPr
       {loading ? (
         <div className="bg-white border border-[#E8E8E8] rounded-2xl h-48 animate-pulse" />
       ) : (
-        <TopLandingPagesTable data={data?.landingPages ?? []} />
+        <TopLandingPagesTable data={data?.landingPages ?? []} label={bookingLabel} />
       )}
     </div>
   )

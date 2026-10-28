@@ -6,6 +6,7 @@ import DashboardHeader from '@/components/layout/DashboardHeader'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Link from 'next/link'
+import ClientExtrasAdmin from './ClientExtrasAdmin'
 
 export default function EditClientPage() {
   const { id } = useParams<{ id: string }>()
@@ -28,6 +29,8 @@ export default function EditClientPage() {
     mailchimpApiKey: '',
     mailchimpListId: '',
     searchConsoleSiteUrl: '',
+    bookingGoalLabel: '',
+    membershipGoalLabel: '',
   })
 
   const [newPassword, setNewPassword] = useState('')
@@ -50,6 +53,8 @@ export default function EditClientPage() {
             mailchimpApiKey: '',
             mailchimpListId: cfg.mailchimpListId ?? '',
             searchConsoleSiteUrl: cfg.searchConsoleSiteUrl ?? '',
+            bookingGoalLabel: cfg.bookingGoalLabel ?? '',
+            membershipGoalLabel: cfg.membershipGoalLabel ?? '',
           })
         }
         setLoading(false)
@@ -154,11 +159,25 @@ export default function EditClientPage() {
             onChange={set('ga4BookingEventName')}
           />
           <Input
+            label="What the club calls it"
+            hint="Shown on the dashboard instead of “Booking starts”, e.g. “Christmas enquiries”. Leave empty to keep the default."
+            placeholder="Booking starts"
+            value={form.bookingGoalLabel}
+            onChange={set('bookingGoalLabel')}
+          />
+          <Input
             label="Membership enquiry event name"
             hint="The GA4 event that counts as a membership enquiry (default: membership_enquiry)"
             placeholder="membership_enquiry"
             value={form.ga4MembershipEventName}
             onChange={set('ga4MembershipEventName')}
+          />
+          <Input
+            label="What the club calls it"
+            hint="Shown on the Membership tab instead of “Membership enquiries”. Leave empty to keep the default."
+            placeholder="Membership enquiries"
+            value={form.membershipGoalLabel}
+            onChange={set('membershipGoalLabel')}
           />
 
           <div className="border-t border-gray-100 pt-5">
@@ -274,6 +293,8 @@ export default function EditClientPage() {
             </Link>
           </div>
         </form>
+
+        <ClientExtrasAdmin clientId={id} intakeToken={client.intakeToken ?? null} />
 
         {/* Password reset */}
         <form onSubmit={handlePasswordReset} className="bg-white border border-[#E8E8E8] rounded-2xl p-6 space-y-4">

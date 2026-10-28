@@ -7,6 +7,7 @@ import { signOut } from 'next-auth/react'
 
 const navItems = [
   { label: 'Overview',    href: '/dashboard' },
+  { label: 'Enquiries',   href: '/dashboard/enquiries' },
   { label: 'Visitors',    href: '/dashboard/visitors' },
   { label: 'Membership',  href: '/dashboard/membership' },
   { label: 'Email',       href: '/dashboard/email' },

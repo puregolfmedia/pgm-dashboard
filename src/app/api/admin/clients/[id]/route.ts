@@ -42,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const body = await request.json()
   const { ga4PropertyId, ga4ServiceAccountJson, ga4BookingEventName, ga4MembershipEventName,
           metaAdAccountId, metaAccessToken, emailOctopusApiKey,
-          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, newPassword } = body
+          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, bookingGoalLabel, membershipGoalLabel, newPassword } = body
 
   // Handle password reset
   if (newPassword) {
@@ -64,6 +64,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (emailOctopusApiKey) configData.emailOctopusApiKey = encrypt(emailOctopusApiKey)
   if (mailchimpListId !== undefined) configData.mailchimpListId = mailchimpListId || null
   if (mailchimpApiKey) configData.mailchimpApiKey = encrypt(mailchimpApiKey)
+  if (bookingGoalLabel !== undefined) configData.bookingGoalLabel = bookingGoalLabel.trim().slice(0, 60) || null
+  if (membershipGoalLabel !== undefined) configData.membershipGoalLabel = membershipGoalLabel.trim().slice(0, 60) || null
   if (searchConsoleSiteUrl !== undefined) configData.searchConsoleSiteUrl = searchConsoleSiteUrl.trim() || null
 
   if (Object.keys(configData).length > 0) {

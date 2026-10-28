@@ -22,6 +22,11 @@ export default auth((req) => {
   // keeps the POST method, so signing out after setting a password ended up
   // POSTing to the static /change-password page and failing with 405.
   // The change-password route checks the session itself.
+  // Public: website forms post enquiries here (checked by secret token in the route)
+  if (nextUrl.pathname.startsWith('/api/intake/')) {
+    return NextResponse.next()
+  }
+
   if (nextUrl.pathname.startsWith('/api/auth/')) {
     return NextResponse.next()
   }

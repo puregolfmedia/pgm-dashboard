@@ -123,6 +123,7 @@ export async function GET(request: Request) {
       trafficSources: traffic,
       landingPages: pages,
       warnings,
+      labels: { booking: config.bookingGoalLabel || null },
     }
 
     // Cache only complete results, so a temporary failure isn't remembered for 5 minutes

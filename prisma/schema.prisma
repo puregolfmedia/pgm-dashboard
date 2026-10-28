@@ -32,6 +32,74 @@ model Client {
   users      User[]
   dataConfig DataSourceConfig?
   createdAt  DateTime          @default(now())
+
+  // Secret part of the URL that website forms post enquiries to
+  intakeToken String?          @unique
+  enquiries   Enquiry[]
+  goals       Goal[]
+  notes       Note[]
+}
+
+// ─── Enquiries, goals and work notes ─────────────────────────────────────────
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  BOOKED
+  LOST
+}
+
+model Enquiry {
+  id          String        @id @default(cuid())
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  receivedAt  DateTime      @default(now())
+  source      String        @default("manual") // "form" or "manual"
+  category    String?       // e.g. "Christmas party"
+  name        String?
+  email       String?
+  phone       String?
+  eventDate   String?       // as the person wrote it
+  message     String?
+  status      EnquiryStatus @default(NEW)
+  bookedValue Float?        // £, when booked
+  bookedAt    DateTime?
+  staffNotes  String?
+  updatedAt   DateTime      @updatedAt
+
+  @@index([clientId, receivedAt])
+}
+
+enum GoalMetric {
+  ENQUIRIES
+  BOOKINGS
+  REVENUE
+}
+
+model Goal {
+  id        String     @id @default(cuid())
+  clientId  String
+  client    Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  metric    GoalMetric
+  category  String?    // count only enquiries in this category; empty = all
+  target    Float
+  startDate DateTime
+  deadline  DateTime
+  createdAt DateTime   @default(now())
+
+  @@index([clientId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date      DateTime // the day the work happened
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([clientId, date])
 }
 
 // ─── Data Sources ────────────────────────────────────────────────────────────
@@ -46,6 +114,9 @@ model DataSourceConfig {
   ga4ServiceAccountJson    String?
   ga4BookingEventName      String?  @default("generate_lead")
   ga4MembershipEventName   String?  @default("membership_enquiry")
+  // What the club calls those actions on its dashboard
+  bookingGoalLabel         String?
+  membershipGoalLabel      String?
 
   // Meta
   metaAdAccountId          String?

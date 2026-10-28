@@ -43,6 +43,7 @@ export async function GET(request: Request) {
     ])
 
     const data = {
+      label: config.membershipGoalLabel || null,
       metrics: {
         enquiries: {
           value: formatNumber(overview.current.bookingStarts),

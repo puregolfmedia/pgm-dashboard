@@ -10,6 +10,10 @@ export const metricHelp: Record<string, string> = {
   'Ad spend': 'Total spent on Meta (Facebook & Instagram) ads in this period.',
   'ROAS': 'Return on ad spend: revenue tracked from ads for every £1 spent (e.g. 3x = £3 back per £1).',
 
+  'Enquiries received': 'Enquiries logged in the dashboard — from your website forms automatically, plus any added by hand.',
+  'Enquiries booked': 'Enquiries marked as booked, and what % of all enquiries that is.',
+  'Booked revenue': 'Total value of enquiries marked as booked.',
+
   // Visitors
   'Total users': 'Different people who visited your website.',
   'New users': 'People visiting your website for the first time.',
@@ -56,6 +60,7 @@ export const pageHelp: Record<string, string> = {
   'Overview': 'Your headline numbers at a glance. Arrows compare with the previous period of the same length.',
   'Visitors': 'Who is visiting your website and how they behave.',
   'Membership': 'Interest in membership generated through your website.',
+  'Enquiries': 'Every enquiry from your website forms, plus ones added by hand, and which turned into bookings.',
   'Email': 'How your email campaigns performed.',
   'Paid Social': 'How your Facebook & Instagram ads performed.',
   'Pages': 'Which pages bring people in and lead to bookings.',
