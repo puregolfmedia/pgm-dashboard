@@ -207,37 +207,31 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
           </p>
         </div>
 
-        {/* In brief: four headline tiles, each opening its section */}
-        <div className="relative bg-white px-5 sm:px-9 py-7 overflow-hidden">
+        {/* In brief: four one-line bullet points; each opens its section */}
+        <div className="relative bg-white px-6 sm:px-9 py-7 overflow-hidden">
           <span aria-hidden className="absolute -right-28 -top-28 w-80 h-80 rounded-full pointer-events-none"
             style={{ background: 'radial-gradient(circle, rgba(184,145,58,0.10) 0%, rgba(184,145,58,0) 70%)' }} />
-          <div className="relative flex items-baseline justify-between gap-4 flex-wrap">
-            <h2 className="flex items-center gap-2 font-serif text-[22px] text-pgm-green font-semibold">
-              <Icon name="sparkle" className="w-5 h-5 text-pgm-gold" />In brief
-            </h2>
-            <p className="text-xs text-gray-400 print:hidden">Click a line to see the detail</p>
-          </div>
+          <h2 className="relative flex items-center gap-2 font-serif text-[22px] text-pgm-green font-semibold">
+            <Icon name="sparkle" className="w-5 h-5 text-pgm-gold" />In brief
+          </h2>
           {loading ? (
-            <div className="grid sm:grid-cols-2 gap-3 mt-5">{[0, 1, 2, 3].map((i) => <div key={i} className="h-[72px] bg-pgm-page rounded-xl animate-pulse" />)}</div>
+            <div className="space-y-3.5 mt-5">{[0, 1, 2, 3].map((i) => <div key={i} className="h-4 bg-pgm-page rounded animate-pulse" style={{ width: `${55 - i * 5}%` }} />)}</div>
           ) : brief.length ? (
-            <ul className="relative grid sm:grid-cols-2 gap-3 mt-5">
+            <ul className="relative mt-4 space-y-1">
               {brief.map((item, i) => (
                 <li key={i}>
-                  <button type="button" onClick={() => goTo(item.target)}
-                    className="group w-full h-full text-left flex items-center gap-3.5 rounded-xl border border-pgm-line bg-pgm-page/60 px-4 py-3.5
-                      hover:bg-white hover:border-pgm-green/40 hover:shadow-[0_4px_14px_-6px_rgba(8,71,36,0.25)] hover:-translate-y-px
-                      motion-reduce:hover:translate-y-0 transition-all duration-150">
-                    <span className="w-10 h-10 rounded-lg bg-pgm-green text-white flex items-center justify-center shrink-0 group-hover:bg-pgm-deep transition-colors">
-                      <Icon name={item.icon} />
+                  <button type="button" onClick={() => goTo(item.target)} title="See the detail"
+                    className="group -mx-2 px-2 py-1.5 rounded-lg flex items-center gap-3 text-left hover:bg-pgm-page transition-colors">
+                    <Icon name={item.icon} className="w-[18px] h-[18px] text-pgm-green shrink-0" />
+                    <span className="font-serif text-[18px] leading-snug text-pgm-ink group-hover:text-pgm-green group-hover:underline decoration-pgm-green/30 underline-offset-4">
+                      {item.text}
                     </span>
-                    <span className="flex-1 min-w-0 font-serif text-[17px] leading-snug text-pgm-ink">{item.text}</span>
                     {item.change !== 0 && (
                       <span className={`shrink-0 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${item.change > 0 ? 'bg-[#E3F1E7] text-[#1E7A45]' : 'bg-[#F8E6E1] text-[#B4432F]'}`}
                         title={`${item.change > 0 ? 'Up' : 'Down'} ${Math.abs(item.change)}% ${cmp}`}>
                         <Icon name={item.change > 0 ? 'up' : 'down'} className="w-3.5 h-3.5" strokeWidth={2.4} />{Math.abs(item.change)}%
                       </span>
                     )}
-                    <Icon name="chevron" className="w-4 h-4 text-gray-300 group-hover:text-pgm-green shrink-0 print:hidden transition-colors" />
                   </button>
                 </li>
               ))}
