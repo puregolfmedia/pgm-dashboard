@@ -16,6 +16,7 @@ import EmailCampaigns from '@/components/dashboard/EmailCampaigns'
 import SearchTable from '@/components/dashboard/SearchTable'
 import Section from '@/components/dashboard/Section'
 import Button from '@/components/ui/Button'
+import Icon from '@/components/ui/Icon'
 import { pctChange } from '@/lib/utils'
 import { buildSummary } from '@/lib/summary'
 import type { GoalProgress } from '@/lib/goals'
@@ -150,12 +151,19 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   ]
 
   const sections = [
-    { id: 'enquiries', title: 'Enquiries' },
-    websiteOn && { id: 'website', title: 'Website' },
-    emailOn && { id: 'email', title: 'Email' },
-    searchOn && { id: 'google', title: 'Google search' },
-    adsOn && { id: 'ads', title: 'Ads' },
-  ].filter(Boolean) as { id: string; title: string }[]
+    { id: 'enquiries', title: 'Enquiries', icon: 'enquiries' },
+    websiteOn && { id: 'website', title: 'Website', icon: 'website' },
+    emailOn && { id: 'email', title: 'Email', icon: 'email' },
+    searchOn && { id: 'google', title: 'Google search', icon: 'search' },
+    adsOn && { id: 'ads', title: 'Ads', icon: 'ads' },
+  ].filter(Boolean) as { id: string; title: string; icon: string }[]
+  // Jump to a section, briefly highlighting it so it's clear where you landed
+  const goTo = (id: string) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
+    el.classList.remove('flash-section'); void el.offsetWidth; el.classList.add('flash-section')
+  }
 
   return (
     <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-12 max-w-6xl mx-auto">
@@ -168,10 +176,13 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
             <Button size="sm" variant="secondary" onClick={() => window.print()}>Print or save as PDF</Button>
           </div>
         </div>
-        <nav aria-label="Jump to section" className="flex gap-2 flex-wrap text-xs">
-          <span className="text-gray-400">Jump to:</span>
+        <nav aria-label="Jump to section" className="flex gap-1.5 flex-wrap items-center text-xs">
+          <span className="text-gray-400 mr-1">Jump to</span>
           {sections.map((sec) => (
-            <a key={sec.id} href={`#${sec.id}`} className="text-pgm-green hover:underline">{sec.title}</a>
+            <a key={sec.id} href={`#${sec.id}`} onClick={(e) => { e.preventDefault(); goTo(sec.id) }}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-pgm-line text-pgm-green hover:border-pgm-green/50 hover:bg-pgm-cream transition-colors">
+              <Icon name={sec.icon} className="w-3.5 h-3.5" />{sec.title}
+            </a>
           ))}
         </nav>
       </div>
@@ -196,31 +207,47 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
           </p>
         </div>
 
-        {/* In brief: white panel with green accents */}
-        <div className="relative bg-white px-6 sm:px-9 py-7 overflow-hidden">
-          <span aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-pgm-green" />
+        {/* In brief: four headline tiles, each opening its section */}
+        <div className="relative bg-white px-5 sm:px-9 py-7 overflow-hidden">
           <span aria-hidden className="absolute -right-28 -top-28 w-80 h-80 rounded-full pointer-events-none"
-            style={{ background: 'radial-gradient(circle, rgba(8,71,36,0.09) 0%, rgba(8,71,36,0) 70%)' }} />
-          <h2 className="relative font-serif text-[22px] text-pgm-green font-semibold">In brief</h2>
+            style={{ background: 'radial-gradient(circle, rgba(184,145,58,0.10) 0%, rgba(184,145,58,0) 70%)' }} />
+          <div className="relative flex items-baseline justify-between gap-4 flex-wrap">
+            <h2 className="flex items-center gap-2 font-serif text-[22px] text-pgm-green font-semibold">
+              <Icon name="sparkle" className="w-5 h-5 text-pgm-gold" />In brief
+            </h2>
+            <p className="text-xs text-gray-400 print:hidden">Click a line to see the detail</p>
+          </div>
           {loading ? (
-            <div className="space-y-3 mt-4">{[0, 1, 2, 3].map((i) => <div key={i} className="h-4 bg-pgm-cream rounded animate-pulse" style={{ width: `${60 - i * 6}%` }} />)}</div>
+            <div className="grid sm:grid-cols-2 gap-3 mt-5">{[0, 1, 2, 3].map((i) => <div key={i} className="h-[72px] bg-pgm-page rounded-xl animate-pulse" />)}</div>
           ) : brief.length ? (
-            <ul className="relative mt-4 space-y-2.5">
-              {brief.map((line, i) => (
-                <li key={i} className="flex items-start gap-3 font-serif text-[18px] leading-snug text-pgm-ink">
-                  <span aria-hidden className="mt-[3px] w-5 h-5 rounded-full bg-pgm-green flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 6.2 5 8.5l4.5-5" /></svg>
-                  </span>
-                  {line}
+            <ul className="relative grid sm:grid-cols-2 gap-3 mt-5">
+              {brief.map((item, i) => (
+                <li key={i}>
+                  <button type="button" onClick={() => goTo(item.target)}
+                    className="group w-full h-full text-left flex items-center gap-3.5 rounded-xl border border-pgm-line bg-pgm-page/60 px-4 py-3.5
+                      hover:bg-white hover:border-pgm-green/40 hover:shadow-[0_4px_14px_-6px_rgba(8,71,36,0.25)] hover:-translate-y-px
+                      motion-reduce:hover:translate-y-0 transition-all duration-150">
+                    <span className="w-10 h-10 rounded-lg bg-pgm-green text-white flex items-center justify-center shrink-0 group-hover:bg-pgm-deep transition-colors">
+                      <Icon name={item.icon} />
+                    </span>
+                    <span className="flex-1 min-w-0 font-serif text-[17px] leading-snug text-pgm-ink">{item.text}</span>
+                    {item.change !== 0 && (
+                      <span className={`shrink-0 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${item.change > 0 ? 'bg-[#E3F1E7] text-[#1E7A45]' : 'bg-[#F8E6E1] text-[#B4432F]'}`}
+                        title={`${item.change > 0 ? 'Up' : 'Down'} ${Math.abs(item.change)}% ${cmp}`}>
+                        <Icon name={item.change > 0 ? 'up' : 'down'} className="w-3.5 h-3.5" strokeWidth={2.4} />{Math.abs(item.change)}%
+                      </span>
+                    )}
+                    <Icon name="chevron" className="w-4 h-4 text-gray-300 group-hover:text-pgm-green shrink-0 print:hidden transition-colors" />
+                  </button>
                 </li>
               ))}
             </ul>
           ) : <p className="relative font-serif text-[17px] text-gray-500 mt-3">Nothing has been recorded for these dates yet.</p>}
           {!loading && briefNotes.length > 0 && (
-            <div className="relative mt-5 space-y-1.5">
+            <div className="relative mt-4 space-y-1.5">
               {briefNotes.map((n) => (
-                <p key={n} className="flex items-start gap-2 text-[13px] text-pgm-green bg-pgm-cream rounded-lg px-3 py-2">
-                  <svg aria-hidden viewBox="0 0 16 16" className="w-4 h-4 mt-px shrink-0" fill="none" stroke="currentColor" strokeWidth={1.6}><circle cx="8" cy="8" r="6.5" /><path d="M8 7.2V11M8 5v.01" strokeLinecap="round" /></svg>
+                <p key={n} className="flex items-start gap-2 text-[13px] text-pgm-ink/75">
+                  <Icon name="info" className="w-4 h-4 mt-px shrink-0 text-pgm-gold" />
                   {n}
                 </p>
               ))}
@@ -248,7 +275,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
       <GoalProgressList goals={goals} />
 
       {/* Enquiries */}
-      <Section id="enquiries" title="Enquiries and bookings"
+      <Section icon="enquiries" id="enquiries" title="Enquiries and bookings"
         intro="Every enquiry from your website forms, plus ones taken by phone or in person. Update each one’s status as it progresses, and when it’s booked enter its value — that’s how booked revenue is worked out.">
         {enquiries.error ? <p className="text-sm text-gray-400">{enquiries.error}</p> : (
           <EnquiriesManager clientId={clientId} isAdmin={isAdmin} data={enquiries.data} loading={enquiriesLoading} onChanged={loadEnquiries} />
@@ -257,7 +284,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
 
       {/* Website */}
       {websiteOn ? (
-        <Section id="website" tinted title="Your website" intro="Who visited the website, where they came from, what they used, and which pages brought them in. From Google Analytics.">
+        <Section icon="website" id="website" tinted title="Your website" intro="Who visited the website, where they came from, what they used, and which pages brought them in. From Google Analytics.">
           {overview.error ? <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">{overview.error}</p> : loading ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
               {[2, 1, 2, 1].map((span, i) => (
@@ -287,7 +314,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
 
       {/* Email */}
       {emailOn ? (
-        <Section id="email" title="Email marketing"
+        <Section icon="email" id="email" title="Email marketing"
           intro={`Every email sent${emailSince ? ` since ${longDate(emailSince)}` : ' in the last 90 days'}, how many people opened it, and how many clicked a link. This section isn’t affected by the dates chosen above.`}>
           <EmailCampaigns data={email.data} loading={emailLoading} error={email.error} />
         </Section>
@@ -295,7 +322,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
 
       {/* Google search */}
       {searchOn ? (
-        <Section id="google" tinted title="Google search" intro="How your website shows up when people search on Google (not paid ads). Google’s figures run about two days behind.">
+        <Section icon="search" id="google" tinted title="Google search" intro="How your website shows up when people search on Google (not paid ads). Google’s figures run about two days behind.">
           {seo.error ? <p className="text-sm text-gray-400 bg-white border border-pgm-line rounded-xl p-5">{seo.error}</p> : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -315,7 +342,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
 
       {/* Ads */}
       {adsOn ? (
-        <Section id="ads" title="Facebook & Instagram ads" intro="What was spent on ads, how often they were seen and clicked, and what they brought back.">
+        <Section icon="ads" id="ads" title="Facebook & Instagram ads" intro="What was spent on ads, how often they were seen and clicked, and what they brought back.">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <MetricCard label="Times shown" help="How many times your ads appeared on screen." value={paid.data.metrics.impressions.value} change={paid.data.metrics.impressions.change} changePeriod={cmp} loading={loading} />
             <MetricCard label="Clicks" help="How many times people clicked your ads." value={paid.data.metrics.clicks.value} change={paid.data.metrics.clicks.change} changePeriod={cmp} loading={loading} />
