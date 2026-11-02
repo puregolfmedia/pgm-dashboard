@@ -3,6 +3,29 @@ import { decrypt } from './crypto'
 import { toRange, type DateRange } from './dateRange'
 import type { DailyBooking, LandingPage, TrafficSource } from '@/types/dashboard'
 
+/** Dates a club's figures are trusted from (YYYY-MM-DD). */
+export interface TrackingDates {
+  /** When the website's analytics started recording */
+  websiteFrom?: string | null
+  /** When the booking/enquiry event started being counted (e.g. after set-up tests) */
+  bookingsFrom?: string | null
+}
+
+const later = (a: string, b?: string | null) => (b && b > a ? b : a)
+
+/** A date window with its start moved up to `from`, or null if the whole window is before it. */
+function clip(start: string, end: string, from?: string | null) {
+  const s = later(start, from)
+  return s <= end ? { startDate: s, endDate: end } : null
+}
+
+/** Which day the booking/enquiry event is counted from: the later of the two dates. */
+export function bookingsFromDate(t?: TrackingDates) {
+  if (!t) return null
+  const a = t.websiteFrom ?? null, b = t.bookingsFrom ?? null
+  return a && b ? later(a, b) : a ?? b
+}
+
 function getClient(encryptedServiceAccountJson: string): BetaAnalyticsDataClient {
   const json = JSON.parse(decrypt(encryptedServiceAccountJson))
   return new BetaAnalyticsDataClient({ credentials: json })
@@ -25,27 +48,28 @@ export async function fetchGA4Overview(
   propertyId: string,
   encryptedServiceAccountJson: string,
   bookingEventName: string,
-  days: number | DateRange = 30
+  days: number | DateRange = 30,
+  tracking?: TrackingDates
 ): Promise<GA4OverviewResult> {
   const client = getClient(encryptedServiceAccountJson)
 
   const r = toRange(days)
 
-  // Also fetch booking event count separately (event count filtered by name)
-  const [bookingResponse] = await client.runReport({
-    property: `properties/${propertyId}`,
-    dateRanges: [
-      { startDate: r.start, endDate: r.end, name: 'current' },
-      { startDate: r.prevStart, endDate: r.prevEnd, name: 'previous' },
-    ],
-    metrics: [{ name: 'eventCount' }],
-    dimensionFilter: {
-      filter: {
-        fieldName: 'eventName',
-        stringFilter: { value: bookingEventName, matchType: 'EXACT' },
-      },
-    },
-  })
+  const from = bookingsFromDate(tracking)
+  const countBookings = async (w: { startDate: string; endDate: string } | null) => {
+    if (!w) return 0
+    const [res] = await client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [w],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: bookingEventName, matchType: 'EXACT' } } },
+    })
+    return parseFloat(res.rows?.[0]?.metricValues?.[0]?.value ?? '0')
+  }
+  const [bookingsNow, bookingsPrev] = await Promise.all([
+    countBookings(clip(r.start, r.end, from)),
+    countBookings(clip(r.prevStart, r.prevEnd, from)),
+  ])
 
   const [sessionsResponse] = await client.runReport({
     property: `properties/${propertyId}`,
@@ -62,18 +86,17 @@ export async function fetchGA4Overview(
   }
 
   const sRows = sessionsResponse.rows ?? []
-  const bRows = bookingResponse.rows ?? []
 
   return {
     current: {
       sessions: getMetric(sRows, 'current', 0),
       bounceRate: getMetric(sRows, 'current', 1),
       avgSessionDuration: getMetric(sRows, 'current', 2),
-      bookingStarts: getMetric(bRows, 'current', 0),
+      bookingStarts: bookingsNow,
     },
     previous: {
       sessions: getMetric(sRows, 'previous', 0),
-      bookingStarts: getMetric(bRows, 'previous', 0),
+      bookingStarts: bookingsPrev,
     },
   }
 }
@@ -82,10 +105,14 @@ export async function fetchGA4DailyBookings(
   propertyId: string,
   encryptedServiceAccountJson: string,
   bookingEventName: string,
-  days: number | DateRange = 30
+  days: number | DateRange = 30,
+  tracking?: TrackingDates
 ): Promise<DailyBooking[]> {
   const client = getClient(encryptedServiceAccountJson)
-  const { start, end } = toRange(days)
+  const r = toRange(days)
+  const window = clip(r.start, r.end, bookingsFromDate(tracking))
+  if (!window) return []
+  const { startDate: start, endDate: end } = window
   const fmt = (d: string) => d
 
   const [response] = await client.runReport({
@@ -150,10 +177,12 @@ export async function fetchGA4LandingPages(
   propertyId: string,
   encryptedServiceAccountJson: string,
   bookingEventName: string,
-  days: number | DateRange = 30
+  days: number | DateRange = 30,
+  tracking?: TrackingDates
 ): Promise<LandingPage[]> {
   const client = getClient(encryptedServiceAccountJson)
   const { start, end } = toRange(days)
+  const bookingWindow = clip(start, end, bookingsFromDate(tracking))
   const fmt = (d: string) => d
 
   const notSetFilter = {
@@ -178,9 +207,9 @@ export async function fetchGA4LandingPages(
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
       limit: 50,
     }),
-    client.runReport({
+    !bookingWindow ? Promise.resolve([{ rows: [] as any[] }] as const) : client.runReport({
       property: `properties/${propertyId}`,
-      dateRanges: [{ startDate: fmt(start), endDate: fmt(end) }],
+      dateRanges: [bookingWindow],
       dimensions: [{ name: 'landingPagePlusQueryString' }],
       metrics: [{ name: 'eventCount' }],
       dimensionFilter: {
@@ -318,7 +347,8 @@ export async function fetchGA4Visitors(
   propertyId: string,
   encryptedServiceAccountJson: string,
   bookingEventName: string,
-  days: number | DateRange = 30
+  days: number | DateRange = 30,
+  tracking?: TrackingDates
 ): Promise<GA4VisitorMetrics> {
   const client = getClient(encryptedServiceAccountJson)
   const r = toRange(days)
@@ -329,6 +359,7 @@ export async function fetchGA4Visitors(
     { startDate: r.prevStart, endDate: r.prevEnd, name: 'previous' },
   ]
 
+  const bookingWindow = clip(r.start, r.end, bookingsFromDate(tracking))
   const [[summary], [devices], [channels], [channelBookings], [dailyNow], [dailyPrev]] = await Promise.all([
     client.runReport({
       property,
@@ -353,9 +384,9 @@ export async function fetchGA4Visitors(
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
       limit: 10,
     }),
-    client.runReport({
+    !bookingWindow ? Promise.resolve([{ rows: [] as any[] }] as const) : client.runReport({
       property,
-      dateRanges: current,
+      dateRanges: [bookingWindow],
       dimensions: [{ name: 'sessionDefaultChannelGroup' }],
       metrics: [{ name: 'eventCount' }],
       dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: bookingEventName, matchType: 'EXACT' } } },
@@ -393,8 +424,13 @@ export async function fetchGA4Visitors(
 
   // Every day of the period, lined up with the same position in the comparison period
   const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '')
+  // Skip days before the website's tracking started (nothing was recorded then)
+  const skip = tracking?.websiteFrom && tracking.websiteFrom > r.start
+    ? Math.round((Date.parse(tracking.websiteFrom) - Date.parse(r.start)) / 86_400_000) : 0
   const day = new Date(`${r.start}T12:00:00Z`)
   const prevDay = new Date(`${r.prevStart}T12:00:00Z`)
+  day.setUTCDate(day.getUTCDate() + skip)
+  prevDay.setUTCDate(prevDay.getUTCDate() + skip)
   const last = r.end.replace(/-/g, '')
   const dailySessions: GA4VisitorMetrics['dailySessions'] = []
   while (ymd(day) <= last) {

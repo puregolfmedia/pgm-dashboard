@@ -4,6 +4,7 @@ import { demoResponse } from '@/lib/demo'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchGA4Visitors } from '@/lib/ga4'
+import { trackingDates, canCompare } from '@/lib/tracking'
 import { cacheGet, cacheSet, makeCacheKey } from '@/lib/cache'
 import type { ApiResponse } from '@/types/api'
 
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
   const demo = await demoResponse(requestedClientId, 'visitors', days)
   if (demo) return demo
 
-  const cacheKey = makeCacheKey(requestedClientId, 'visitors-v2', range.key)
+  const cacheKey = makeCacheKey(requestedClientId, 'visitors-v3', range.key)
   const cached = await cacheGet<any>(cacheKey)
   if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
 
@@ -39,7 +40,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = await fetchGA4Visitors(config.ga4PropertyId, config.ga4ServiceAccountJson, config.ga4BookingEventName ?? 'generate_lead', range)
+    const tracking = trackingDates(config)
+    const full = await fetchGA4Visitors(config.ga4PropertyId, config.ga4ServiceAccountJson, config.ga4BookingEventName ?? 'generate_lead', range, tracking)
+    // No comparison when the earlier period starts before tracking did
+    const data = canCompare(range, tracking).visits ? full : {
+      ...full,
+      previous: undefined,
+      dailySessions: full.dailySessions.map((d) => ({ ...d, previous: 0 })),
+    }
     const result = await cacheSet(cacheKey, data)
     return NextResponse.json({ data, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
   } catch (err) {

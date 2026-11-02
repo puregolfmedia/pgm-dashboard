@@ -122,6 +122,17 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   // Older cached visitor data lacks the daily and comparison figures
   const v = visitors.data?.dailySessions ? visitors.data : null
   const compareName = cmp.replace(/^vs /, '').replace(/^prior/, 'the previous')
+  // Tell the reader when the chosen dates reach back before tracking began
+  const rangeStart = range.from ?? new Date(Date.now() - (range.days - 1) * 86_400_000).toISOString().slice(0, 10)
+  const dayMonth = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+  const tracking = overview.data?.tracking as { websiteFrom: string | null; bookingsFrom: string | null } | undefined
+  const briefNotes: string[] = []
+  if (tracking?.websiteFrom && rangeStart < tracking.websiteFrom) {
+    briefNotes.push(`Website tracking only started on ${dayMonth(tracking.websiteFrom)}, so there are no website figures before then.`)
+  }
+  if (tracking?.bookingsFrom && tracking.bookingsFrom !== tracking.websiteFrom && rangeStart < tracking.bookingsFrom) {
+    briefNotes.push(`${label} are counted from ${dayMonth(tracking.bookingsFrom)} — earlier clicks, while tracking was being set up, are left out.`)
+  }
 
   const scorecard: { label: string; value: string; change: number; sub?: string; help: string; loading: boolean }[] = [
     ...(websiteOn ? [
@@ -168,38 +179,53 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
       {/* Header band: the club, the period in plain English, and the headline numbers */}
       <header className="rounded-2xl overflow-hidden border border-pgm-green shadow-[0_1px_0_rgba(8,71,36,0.08)]"
         style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
-        <div className="bg-pgm-green text-white px-6 sm:px-9 pt-8 pb-8">
-          <div>
-            <div className="flex items-center gap-4">
-              {club?.logoUrl && (
-                <span className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={club.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
-                </span>
-              )}
-              <h1 className="font-serif text-[34px] sm:text-[40px] leading-[1.05] font-semibold tracking-tight">{club?.name ?? 'Your club'}</h1>
+        <div className="bg-pgm-green text-white px-6 sm:px-9 py-8">
+          <div className="flex items-center gap-4 sm:gap-5">
+            {club?.logoUrl && (
+              <span className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={club.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
+              </span>
+            )}
+            <h1 className="font-serif text-[34px] sm:text-[40px] leading-[1.05] font-semibold tracking-tight">{club?.name ?? 'Your club'}</h1>
+          </div>
+          <p className="text-white/75 text-[15px] mt-4">
+            Marketing results for {range.from && range.to ? `${longDate(range.from)} to ${longDate(range.to)}` : `the last ${range.days} days`},
+            compared with {compareName}.
+            <span className="text-white/50"> Prepared by Pure Golf Media.</span>
+          </p>
+        </div>
+
+        {/* In brief: white panel with green accents */}
+        <div className="relative bg-white px-6 sm:px-9 py-7 overflow-hidden">
+          <span aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-pgm-green" />
+          <span aria-hidden className="absolute -right-28 -top-28 w-80 h-80 rounded-full pointer-events-none"
+            style={{ background: 'radial-gradient(circle, rgba(8,71,36,0.09) 0%, rgba(8,71,36,0) 70%)' }} />
+          <h2 className="relative font-serif text-[22px] text-pgm-green font-semibold">In brief</h2>
+          {loading ? (
+            <div className="space-y-3 mt-4">{[0, 1, 2, 3].map((i) => <div key={i} className="h-4 bg-pgm-cream rounded animate-pulse" style={{ width: `${60 - i * 6}%` }} />)}</div>
+          ) : brief.length ? (
+            <ul className="relative mt-4 space-y-2.5">
+              {brief.map((line, i) => (
+                <li key={i} className="flex items-start gap-3 font-serif text-[18px] leading-snug text-pgm-ink">
+                  <span aria-hidden className="mt-[3px] w-5 h-5 rounded-full bg-pgm-green flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 6.2 5 8.5l4.5-5" /></svg>
+                  </span>
+                  {line}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="relative font-serif text-[17px] text-gray-500 mt-3">Nothing has been recorded for these dates yet.</p>}
+          {!loading && briefNotes.length > 0 && (
+            <div className="relative mt-5 space-y-1.5">
+              {briefNotes.map((n) => (
+                <p key={n} className="flex items-start gap-2 text-[13px] text-pgm-green bg-pgm-cream rounded-lg px-3 py-2">
+                  <svg aria-hidden viewBox="0 0 16 16" className="w-4 h-4 mt-px shrink-0" fill="none" stroke="currentColor" strokeWidth={1.6}><circle cx="8" cy="8" r="6.5" /><path d="M8 7.2V11M8 5v.01" strokeLinecap="round" /></svg>
+                  {n}
+                </p>
+              ))}
             </div>
-            <p className="text-white/75 text-[15px] mt-4">
-              Marketing results for {range.from && range.to ? `${longDate(range.from)} to ${longDate(range.to)}` : `the last ${range.days} days`},
-              compared with {compareName}.
-              <span className="text-white/50"> Prepared by Pure Golf Media.</span>
-            </p>
-          </div>
-          <div className="mt-7 pt-6 border-t border-white/15">
-            <h2 className="font-serif text-xl text-pgm-gold font-semibold">In brief</h2>
-            {loading ? (
-              <div className="space-y-2.5 mt-4">{[0, 1, 2, 3].map((i) => <div key={i} className="h-4 bg-white/10 rounded animate-pulse" style={{ width: `${85 - i * 10}%` }} />)}</div>
-            ) : brief.length ? (
-              <ul className="mt-3 space-y-2">
-                {brief.map((line, i) => (
-                  <li key={i} className="font-serif text-[18px] leading-snug text-white/90 pl-5 relative">
-                    <span aria-hidden className="absolute left-0 top-[0.55em] w-1.5 h-1.5 rounded-full bg-pgm-gold" />
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="font-serif text-[17px] text-white/70 mt-3">Nothing has been recorded for these dates yet.</p>}
-          </div>
+          )}
         </div>
 
         {/* The scorecard: headline numbers in one ruled strip */}

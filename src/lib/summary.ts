@@ -22,8 +22,8 @@ export interface SummaryInput {
  */
 export function buildSummary(d: SummaryInput, _compareLabel?: string): string[] {
   const trend = (change: number | null | undefined) => {
-    if (change == null || !Number.isFinite(change)) return ''
-    if (change === 0) return ', about the same'
+    // 0 also means "no fair comparison" (e.g. tracking started part-way), so say nothing
+    if (change == null || !Number.isFinite(change) || change === 0) return ''
     return `, ${change > 0 ? 'up' : 'down'} ${Math.abs(change)}%`
   }
 

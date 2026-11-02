@@ -35,6 +35,8 @@ export default function EditClientPage() {
     logoUrl: '',
     brandColor: '',
     reportingStartDate: '',
+    ga4TrackingStartDate: '',
+    ga4BookingStartDate: '',
   })
 
   const [newPassword, setNewPassword] = useState('')
@@ -62,6 +64,8 @@ export default function EditClientPage() {
             searchConsoleSiteUrl: cfg.searchConsoleSiteUrl ?? '',
             bookingGoalLabel: cfg.bookingGoalLabel ?? '',
             membershipGoalLabel: cfg.membershipGoalLabel ?? '',
+            ga4TrackingStartDate: cfg.ga4TrackingStartDate ? String(cfg.ga4TrackingStartDate).slice(0, 10) : '',
+            ga4BookingStartDate: cfg.ga4BookingStartDate ? String(cfg.ga4BookingStartDate).slice(0, 10) : '',
           })
         }
         setLoading(false)
@@ -174,6 +178,22 @@ export default function EditClientPage() {
             value={form.bookingGoalLabel}
             onChange={set('bookingGoalLabel')}
           />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Website tracking started"
+              type="date"
+              hint="Days before this are left out, and no % change is shown against periods before it."
+              value={form.ga4TrackingStartDate}
+              onChange={set('ga4TrackingStartDate')}
+            />
+            <Input
+              label="Count enquiries from"
+              type="date"
+              hint="Use this to leave out set-up test clicks. Leave empty to count from the tracking start."
+              value={form.ga4BookingStartDate}
+              onChange={set('ga4BookingStartDate')}
+            />
+          </div>
           <Input
             label="Membership enquiry event name"
             hint="The GA4 event that counts as a membership enquiry (default: membership_enquiry)"
@@ -304,7 +324,7 @@ export default function EditClientPage() {
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-4">
               <Input
                 label="Logo web address"
-                hint="A white or light logo on a transparent background works best — it sits on the dark green header. Right-click the logo on the club’s website → Copy image address. Must start https://"
+                hint="A white or light logo on a transparent background works best — it sits on the dark green header. Right-click the logo on the club’s website → Copy image address. Must start https:// (or /clients/ for a logo stored with the dashboard)."
                 placeholder="https://www.example.co.uk/logo.png"
                 value={form.logoUrl}
                 onChange={set('logoUrl')}
