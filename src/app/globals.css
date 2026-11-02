@@ -17,3 +17,12 @@ body {
 @media print {
   body { background: #fff; }
 }
+
+/* A brief gold outline on the section you jumped to from the brief or the jump links */
+@keyframes flash-section {
+  0% { outline-color: rgba(184, 145, 58, 0); }
+  25% { outline-color: rgba(184, 145, 58, 0.55); }
+  100% { outline-color: rgba(184, 145, 58, 0); }
+}
+.flash-section { outline: 2px solid transparent; outline-offset: 14px; border-radius: 1rem; animation: flash-section 1.6s ease-out 0.35s; }
+@media (prefers-reduced-motion: reduce) { .flash-section { animation: none; } }

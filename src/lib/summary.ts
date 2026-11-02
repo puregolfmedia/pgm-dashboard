@@ -16,42 +16,55 @@ export interface SummaryInput {
   seo?: any
 }
 
-/**
- * Up to four one-line headlines, most important first. The comparison period
- * is stated once in the page header, so lines just say "up 18%".
- */
-export function buildSummary(d: SummaryInput, _compareLabel?: string): string[] {
-  const trend = (change: number | null | undefined) => {
-    // 0 also means "no fair comparison" (e.g. tracking started part-way), so say nothing
-    if (change == null || !Number.isFinite(change) || change === 0) return ''
-    return `, ${change > 0 ? 'up' : 'down'} ${Math.abs(change)}%`
-  }
+export interface BriefItem {
+  /** Icon name, see components/ui/Icon */
+  icon: string
+  /** The headline, kept to one short line */
+  text: string
+  /** % change against the comparison period; 0 means none worth showing */
+  change: number
+  /** Section of the page this line is about */
+  target: string
+}
 
-  const lines: string[] = []
+/** Up to four one-line headlines, most important first. */
+export function buildSummary(d: SummaryInput, _compareLabel?: string): BriefItem[] {
+  const items: BriefItem[] = []
   const m = d.overview?.metrics
   const label = d.overview?.labels?.booking ?? 'booking starts'
+  const named = label === 'booking starts' || label === 'Booking starts' ? 'booking starts' : label
 
-  if (m && num(m.sessions.value) > 0) lines.push(`${m.sessions.value} website visits${trend(m.sessions.change)}`)
-  if (m && num(m.bookingStarts.value) > 0) lines.push(`${m.bookingStarts.value} ${label === 'booking starts' || label === 'Booking starts' ? 'booking starts' : label} on the website${trend(m.bookingStarts.change)}`)
+  if (m && num(m.sessions.value) > 0) {
+    items.push({ icon: 'website', text: `${m.sessions.value} website visits`, change: m.sessions.change ?? 0, target: 'website' })
+  }
+  if (m && num(m.bookingStarts.value) > 0) {
+    items.push({ icon: 'click', text: `${m.bookingStarts.value} ${named} online`, change: m.bookingStarts.change ?? 0, target: 'website' })
+  }
   const e = d.enquiries?.summary
   if (e?.total > 0) {
-    lines.push(`${e.total} enquir${e.total === 1 ? 'y' : 'ies'} received, ${e.booked} booked${e.booked ? ` (${gbp(e.bookedValue)})` : ''}`)
+    const prev = d.enquiries?.previous?.total
+    items.push({
+      icon: 'enquiries',
+      text: `${e.total} enquir${e.total === 1 ? 'y' : 'ies'}, ${e.booked} booked${e.booked ? ` (${gbp(e.bookedValue)})` : ''}`,
+      change: prev ? pctChange(e.total, prev) : 0,
+      target: 'enquiries',
+    })
   }
   if (d.email?.campaigns?.length) {
-    lines.push(`Emails: ${d.email.avgOpenRate}% opened, ${d.email.avgClickRate}% clicked a link`)
+    items.push({ icon: 'email', text: `Emails: ${d.email.avgOpenRate}% opened, ${d.email.avgClickRate}% clicked`, change: 0, target: 'email' })
   }
   const p = d.paid?.metrics
   if (p && num(p.spend.value) > 0) {
-    lines.push(`${p.spend.value} on Facebook & Instagram ads${p.roas.value !== '—' ? `, returning ${p.roas.value}` : ''}`)
+    items.push({ icon: 'ads', text: `${p.spend.value} on social ads${p.roas.value !== '—' ? `, returning ${p.roas.value}` : ''}`, change: 0, target: 'ads' })
   }
   const s = d.seo?.current
   if (s && s.impressions > 0) {
     const prev = d.seo.previous
-    lines.push(`${nf(s.clicks)} visits from Google search${trend(prev ? pctChange(s.clicks, prev.clicks) : null)}`)
+    items.push({ icon: 'search', text: `${nf(s.clicks)} visits from Google search`, change: prev ? pctChange(s.clicks, prev.clicks) : 0, target: 'google' })
   }
   const top = d.overview?.trafficSources?.[0]
-  if (top) lines.push(`Most visits came from ${friendlySource(top.source)}`)
-  return lines.slice(0, 4)
+  if (top) items.push({ icon: 'sources', text: `Most visits came from ${friendlySource(top.source)}`, change: 0, target: 'website' })
+  return items.slice(0, 4)
 }
 
 /** GA4 channel names in everyday words. */
