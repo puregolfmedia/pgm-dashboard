@@ -32,7 +32,7 @@ export default function ClubBrand() {
   return (
     <div className="flex items-center gap-2.5 min-w-0">
       {club.logoUrl && !logoFailed ? (
-        <span className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0 overflow-hidden p-0.5">
+        <span className="w-9 h-9 flex items-center justify-center shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={club.logoUrl} alt="" className="max-w-full max-h-full object-contain" onError={() => setLogoFailed(true)} />
         </span>

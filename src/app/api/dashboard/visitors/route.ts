@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const demo = await demoResponse(requestedClientId, 'visitors', days)
   if (demo) return demo
 
-  const cacheKey = makeCacheKey(requestedClientId, 'visitors', range.key)
+  const cacheKey = makeCacheKey(requestedClientId, 'visitors-v2', range.key)
   const cached = await cacheGet<any>(cacheKey)
   if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
 
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = await fetchGA4Visitors(config.ga4PropertyId, config.ga4ServiceAccountJson, range)
+    const data = await fetchGA4Visitors(config.ga4PropertyId, config.ga4ServiceAccountJson, config.ga4BookingEventName ?? 'generate_lead', range)
     const result = await cacheSet(cacheKey, data)
     return NextResponse.json({ data, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
   } catch (err) {

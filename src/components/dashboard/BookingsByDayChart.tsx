@@ -31,9 +31,9 @@ export default function BookingsByDayChart({ data, label = 'Booking starts', not
   const title = `${label} by day`
 
   return (
-    <div className="bg-white border border-pgm-line rounded-xl p-5">
-      <h2 className="text-sm font-medium text-pgm-ink">{title}</h2>
-      <p className="text-xs text-gray-400 mt-0.5 mb-5">
+    <div className="bg-white border border-pgm-line rounded-xl p-5 sm:p-6">
+      <h3 className="text-[15px] font-semibold text-pgm-ink">{title}</h3>
+      <p className="text-xs text-gray-500 mt-1 mb-5 leading-relaxed">
         {label === 'Booking starts'
           ? sectionHelp['Booking starts by day']
           : `${label} each day, so you can spot busy days and the effect of campaigns.`}
