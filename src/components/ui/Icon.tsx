@@ -13,6 +13,8 @@ const PATHS: Record<string, React.ReactNode> = {
   up: <path d="M7 14l5-5 5 5" />,
   down: <path d="M7 10l5 5 5-5" />,
   chevron: <path d="M9 6l6 6-6 6" />,
+  trophy: <><path d="M8 4h8v5a4 4 0 0 1-8 0V4z" /><path d="M16 5.5h2.5a2 2 0 0 1-2.5 3.8M8 5.5H5.5A2 2 0 0 0 8 9.3M12 13v4M8.5 20h7M10 17h4" /></>,
+  split: <><path d="M6 4v5a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v5" /><path d="M18 4v5a3 3 0 0 1-3 3H9a3 3 0 0 0-3 3v5" /></>,
 }
 
 export type IconName = keyof typeof PATHS

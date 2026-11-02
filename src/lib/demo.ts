@@ -131,6 +131,15 @@ export function demoData(kind: Kind, days: number): unknown {
           id: c.id, name: c.name, sentAt: d.toISOString(), sent: c.sent,
           opened: Math.round(c.sent * c.open), clicked: Math.round(c.sent * c.click),
           bounced: 14, unsubscribed: 4, openRate: c.open * 100, clickRate: Math.round(c.click * 1000) / 10,
+          ...(c.id === 'd1' && {
+            abTest: {
+              tested: 'Subject line', winnerCriteria: 'opens', testSize: 30, waitHours: 4,
+              variants: [
+                { label: 'A', description: 'Book your Christmas party at the club', recipients: 276, openRate: 26.4, clickRate: 3.6, winner: true },
+                { label: 'B', description: 'Your festive night out, sorted 🎄', recipients: 276, openRate: 19.9, clickRate: 2.5, winner: false },
+              ],
+            },
+          }),
         }
       })
       const avg = (f: (c: any) => number) => campaigns.length ? Math.round(campaigns.reduce((s, c) => s + f(c), 0) / campaigns.length * 10) / 10 : 0
