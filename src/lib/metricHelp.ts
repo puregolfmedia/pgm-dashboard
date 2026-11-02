@@ -26,7 +26,7 @@ export const metricHelp: Record<string, string> = {
 
   // Email
   'Emails sent': 'Total emails delivered across the campaigns below.',
-  'Avg. open rate': 'The % of recipients who opened an email. Golf clubs typically see 30–40%.',
+  'Avg. open rate': 'The % of recipients who opened an email, leaving out automatic opens by Apple Mail (as Mailchimp shows it).',
   'Avg. click rate': 'The % of recipients who clicked a link in an email.',
   'Avg. unsubscribe rate': 'The % of recipients who unsubscribed. Under 0.5% is healthy.',
 

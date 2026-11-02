@@ -16,7 +16,7 @@ export default function EmailCampaigns({ data, loading, error }: { data: any; lo
         <MetricCard label="Emails sent" help="How many email campaigns went out." loading={loading}
           value={data ? String(campaigns.length) : '—'} change={0} />
         <MetricCard label="Average open rate" loading={loading} change={0}
-          help="Of the people each email reached, the % who opened it. Golf clubs typically see 30–40%. Some email apps open emails automatically, so this can read a little high."
+          help="Of the people each email reached, the % who opened it — the same figure Mailchimp shows. Automatic opens by Apple Mail are left out, so this is people who actually opened it."
           value={data ? `${data.avgOpenRate}%` : '—'} />
         <MetricCard label="Average click rate" loading={loading} change={0}
           help="Of the people each email reached, the % who clicked a link in it — the best sign an email got people to act. Around 2–3% is typical."

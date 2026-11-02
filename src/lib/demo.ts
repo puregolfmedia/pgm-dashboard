@@ -103,9 +103,9 @@ export function demoData(kind: Kind, days: number): unknown {
     }
     case 'email': {
       const campaigns = [
-        { id: 'd1', name: 'Book your Christmas party at the club', daysAgo: 4, sent: 1840, open: 0.51, click: 0.062 },
-        { id: 'd2', name: 'Sunday lunch is back — book a table', daysAgo: 18, sent: 1826, open: 0.47, click: 0.041 },
-        { id: 'd3', name: 'Winter membership offer', daysAgo: 27, sent: 1810, open: 0.44, click: 0.033 },
+        { id: 'd1', name: 'Book your Christmas party at the club', daysAgo: 4, sent: 1840, open: 0.24, click: 0.031 },
+        { id: 'd2', name: 'Sunday lunch is back — book a table', daysAgo: 18, sent: 1826, open: 0.21, click: 0.022 },
+        { id: 'd3', name: 'Winter membership offer', daysAgo: 27, sent: 1810, open: 0.19, click: 0.017 },
       ].filter((c) => c.daysAgo <= days).map((c) => {
         const d = new Date(); d.setDate(d.getDate() - c.daysAgo)
         return {

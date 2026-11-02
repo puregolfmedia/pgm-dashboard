@@ -80,14 +80,18 @@ export async function fetchMailchimpMetrics(
     const report = reports[i].status === 'fulfilled' ? (reports[i] as PromiseFulfilledResult<any>).value.data : null
 
     const sent = report?.emails_sent ?? c.emails_sent ?? 0
-    const opened = report?.opens?.unique_opens ?? 0
+    // Apple Mail "opens" every email automatically (Mail Privacy Protection),
+    // which inflates opens. Use Mailchimp's figures with those excluded — the
+    // same open rate Mailchimp shows in its own reports — when available.
+    const opened = report?.opens?.proxy_excluded_unique_opens ?? report?.opens?.unique_opens ?? 0
     const clicked = report?.clicks?.unique_subscriber_clicks ?? report?.clicks?.unique_clicks ?? 0
     const bounced = (report?.bounces?.hard_bounces ?? 0) + (report?.bounces?.soft_bounces ?? 0)
     const unsubscribed = report?.unsubscribed ?? 0
 
     // Mailchimp reports open_rate/click_rate as fractions (0–1) already net of hard bounces
-    const openRate = report?.opens?.open_rate != null
-      ? Math.round(report.opens.open_rate * 1000) / 10
+    const rate = report?.opens?.proxy_excluded_open_rate ?? report?.opens?.open_rate
+    const openRate = rate != null
+      ? Math.round(rate * 1000) / 10
       : sent > 0 ? Math.round((opened / sent) * 1000) / 10 : 0
     const clickRate = report?.clicks?.click_rate != null
       ? Math.round(report.clicks.click_rate * 1000) / 10
