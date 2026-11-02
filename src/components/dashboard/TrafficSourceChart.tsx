@@ -4,11 +4,22 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import type { TrafficSource } from '@/types/dashboard'
 import { sectionHelp } from '@/lib/metricHelp'
 
-const COLORS = ['#006648', '#2d8a66', '#5aae84', '#87d2a2', '#b4f0c0', '#C6C6C6', '#a8a8a8', '#8a8a8a']
+// Google Analytics' channel names, in everyday words
+const NAMES: Record<string, string> = {
+  'Organic Search': 'Google search',
+  'Direct': 'Typed in or bookmarked',
+  'Paid Social': 'Facebook & Instagram ads',
+  'Organic Social': 'Social media posts',
+  'Paid Search': 'Google ads',
+  'Email': 'Emails',
+  'Referral': 'Other websites',
+  'Unassigned': 'Unknown',
+}
 
-export default function TrafficSourceChart({ data }: { data: TrafficSource[] }) {
+export default function TrafficSourceChart({ data: raw }: { data: TrafficSource[] }) {
+  const data = raw.map((d) => ({ ...d, source: NAMES[d.source] ?? d.source }))
   return (
-    <div className="bg-white border border-[#E8E8E8] rounded-2xl p-5">
+    <div className="bg-white border border-pgm-line rounded-xl p-5">
       <h2 className="text-sm font-medium text-pgm-ink">Traffic source</h2>
       <p className="text-xs text-gray-400 mt-0.5 mb-5">{sectionHelp['Traffic source']}</p>
       {data.length === 0 ? (
@@ -28,7 +39,7 @@ export default function TrafficSourceChart({ data }: { data: TrafficSource[] }) 
             tick={{ fontSize: 11, fill: '#6b7280' }}
             tickLine={false}
             axisLine={false}
-            width={90}
+            width={150}
           />
           <Tooltip
             contentStyle={{ borderRadius: 8, border: '1px solid #E8E8E8', fontSize: 12 }}
@@ -36,7 +47,7 @@ export default function TrafficSourceChart({ data }: { data: TrafficSource[] }) 
           />
           <Bar dataKey="sessions" name="Sessions" radius={[0, 4, 4, 0]}>
             {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              <Cell key={i} fill={i === 0 ? '#084724' : '#5E8C70'} />
             ))}
           </Bar>
         </BarChart>

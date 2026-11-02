@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import MetricCard from '@/components/dashboard/MetricCard'
+import MetricCard, { Change } from '@/components/dashboard/MetricCard'
 import BookingsByDayChart, { type ChartNote } from '@/components/dashboard/BookingsByDayChart'
 import TrafficSourceChart from '@/components/dashboard/TrafficSourceChart'
 import TopLandingPagesTable from '@/components/dashboard/TopLandingPagesTable'
@@ -94,7 +94,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   if (!clientId) {
     return (
       <div className="px-4 sm:px-8 py-8">
-        <div className="bg-white border border-[#E8E8E8] rounded-2xl p-8 text-center">
+        <div className="bg-white border border-pgm-line rounded-xl p-8 text-center">
           {isAdmin ? (
             <p className="text-sm text-gray-500">Choose a club under <Link href="/admin" className="text-pgm-green underline">Clients</Link> and click “View dashboard”.</p>
           ) : (
@@ -118,6 +118,21 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   const brief = loading ? [] : buildSummary({ overview: overview.data, enquiries: enquiries.data, email: email.data, emailSince, paid: paid.data, seo: seo.data }, cmp)
   const warnings: string[] = overview.data?.warnings ?? []
 
+  const scorecard: { label: string; value: string; change: number; sub?: string; help: string; loading: boolean }[] = [
+    ...(websiteOn ? [
+      { label: 'Website visits', value: m?.sessions.value ?? '—', change: m?.sessions.change ?? 0, sub: cmp, help: 'Visits to the club’s website.', loading },
+      { label, value: m?.bookingStarts.value ?? '—', change: m?.bookingStarts.change ?? 0, sub: cmp,
+        help: label === 'Booking starts' ? 'Clicks to book or enquire on the website.' : 'Recorded on the website.', loading },
+    ] : []),
+    { label: 'Enquiries received', value: s ? String(s.total) : '—', change: s && prev ? pctChange(s.total, prev.total) : 0, sub: cmp, help: 'From website forms, plus any added by hand.', loading: enquiriesLoading },
+    { label: 'Booked revenue', value: s ? gbp(s.bookedValue) : '—', change: s && prev ? pctChange(s.bookedValue, prev.bookedValue) : 0,
+      sub: s ? `${s.booked} booking${s.booked === 1 ? '' : 's'}` : undefined, help: 'Value of enquiries marked as booked.', loading: enquiriesLoading },
+    ...(adsOn ? [
+      { label: 'Ad spend', value: paid.data.metrics.spend.value, change: paid.data.metrics.spend.change, sub: cmp, help: 'Facebook & Instagram ads.', loading },
+      ...(paid.data.metrics.roas.value !== '—' ? [{ label: 'Return on ad spend', value: paid.data.metrics.roas.value, change: paid.data.metrics.roas.change, sub: cmp, help: 'Revenue per £1 spent on ads.', loading }] : []),
+    ] : []),
+  ]
+
   const sections = [
     { id: 'enquiries', title: 'Enquiries' },
     websiteOn && { id: 'website', title: 'Website' },
@@ -127,9 +142,9 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   ].filter(Boolean) as { id: string; title: string }[]
 
   return (
-    <div className="px-4 sm:px-8 py-6 space-y-8 max-w-6xl">
+    <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-12 max-w-6xl mx-auto">
       {/* Controls */}
-      <div className="space-y-3 print:hidden">
+      <div className="space-y-3 -mb-6 print:hidden">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <FilterBar value={range} onChange={setRange} />
           <div className="flex items-center gap-3">
@@ -145,43 +160,61 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
         </nav>
       </div>
 
-      {/* In brief */}
-      <section aria-labelledby="brief-title" className="bg-white border border-[#E8E8E8] rounded-2xl p-6">
-        <h2 id="brief-title" className="text-lg font-semibold text-pgm-ink">In brief</h2>
-        <p className="text-sm text-gray-500 mt-0.5 mb-3">
-          {range.from && range.to ? `${longDate(range.from)} to ${longDate(range.to)}` : `The last ${range.days} days`}, in plain English.
-        </p>
-        {loading ? (
-          <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="h-4 bg-gray-100 rounded animate-pulse w-3/4" />)}</div>
-        ) : brief.length ? (
-          <ul className="space-y-1.5">
-            {brief.map((line, i) => (
-              <li key={i} className="text-sm text-gray-700 leading-relaxed flex gap-2"><span className="text-pgm-green" aria-hidden>•</span><span>{line}</span></li>
-            ))}
-          </ul>
-        ) : <p className="text-sm text-gray-400">Nothing recorded for these dates yet.</p>}
-        {warnings.map((w) => <p key={w} className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mt-3">{w}</p>)}
-      </section>
-
-      {/* At a glance */}
-      <Section id="glance" title="At a glance" intro={`Your headline numbers. Green and red arrows compare with ${cmp.replace(/^vs /, '')}.`}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {websiteOn && <MetricCard label="Website visits" help="Visits to your website. One person visiting twice counts as two."
-            value={m?.sessions.value ?? '—'} change={m?.sessions.change ?? 0} changePeriod={cmp} loading={loading} />}
-          {websiteOn && <MetricCard label={label}
-            help={label === 'Booking starts' ? 'Times a visitor clicked to book or enquire on your website.' : `How many times this was recorded on your website: ${label}.`}
-            value={m?.bookingStarts.value ?? '—'} change={m?.bookingStarts.change ?? 0} changePeriod={cmp} loading={loading} />}
-          <MetricCard label="Enquiries received" help="Enquiries from your website forms, plus any added by hand."
-            value={s ? String(s.total) : '—'} change={s && prev ? pctChange(s.total, prev.total) : 0} changePeriod={cmp} loading={enquiriesLoading} />
-          <MetricCard label="Booked revenue" help="Total value of enquiries marked as booked."
-            value={s ? `${gbp(s.bookedValue)}` : '—'} change={s && prev ? pctChange(s.bookedValue, prev.bookedValue) : 0} changePeriod={s ? `${s.booked} booked · ${cmp}` : cmp} loading={enquiriesLoading} />
-          {adsOn && <MetricCard label="Ad spend" help="Spent on Facebook & Instagram ads."
-            value={paid.data.metrics.spend.value} change={paid.data.metrics.spend.change} changePeriod={cmp} loading={loading} />}
-          {adsOn && paid.data.metrics.roas.value !== '—' && <MetricCard label="Return on ad spend" help="Revenue tracked from ads for every £1 spent (e.g. 3x = £3 back per £1)."
-            value={paid.data.metrics.roas.value} change={paid.data.metrics.roas.change} changePeriod={cmp} loading={loading} />}
+      {/* Header band: the club, the period in plain English, and the headline numbers */}
+      <header className="rounded-2xl overflow-hidden border border-pgm-green shadow-[0_1px_0_rgba(8,71,36,0.08)]"
+        style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
+        <div className="bg-pgm-green text-white px-6 sm:px-9 pt-8 pb-8">
+          <div>
+            <div className="flex items-center gap-4">
+              {club?.logoUrl && (
+                <span className="w-14 h-14 rounded-xl bg-white p-1.5 flex items-center justify-center shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={club.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
+                </span>
+              )}
+              <h1 className="font-serif text-[34px] sm:text-[40px] leading-[1.05] font-semibold tracking-tight">{club?.name ?? 'Your club'}</h1>
+            </div>
+            <p className="text-white/75 text-[15px] mt-4">
+              Marketing results for {range.from && range.to ? `${longDate(range.from)} to ${longDate(range.to)}` : `the last ${range.days} days`},
+              compared with {cmp.replace(/^vs /, '').replace(/^prior/, 'the previous')}.
+              <span className="text-white/50"> Prepared by Pure Golf Media.</span>
+            </p>
+          </div>
+          <div className="mt-7 pt-6 border-t border-white/15">
+            <h2 className="font-serif text-xl text-pgm-gold font-semibold">In brief</h2>
+            {loading ? (
+              <div className="space-y-2.5 mt-4">{[0, 1, 2, 3].map((i) => <div key={i} className="h-4 bg-white/10 rounded animate-pulse" style={{ width: `${85 - i * 10}%` }} />)}</div>
+            ) : brief.length ? (
+              <ul className="mt-3 lg:columns-2 lg:gap-12 [&>li]:break-inside-avoid [&>li]:mb-2.5">
+                {brief.map((line, i) => (
+                  <li key={i} className="font-serif text-[17px] leading-relaxed text-white/90 pl-4 relative">
+                    <span aria-hidden className="absolute left-0 top-[0.7em] w-1.5 h-1.5 rounded-full bg-pgm-gold" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="font-serif text-[17px] text-white/70 mt-3">Nothing has been recorded for these dates yet.</p>}
+          </div>
         </div>
-        <GoalProgressList goals={goals} />
-      </Section>
+
+        {/* The scorecard: headline numbers in one ruled strip */}
+        <dl className={`bg-white grid grid-cols-2 ${scorecard.length > 4 ? 'lg:grid-cols-6' : 'lg:grid-cols-4'} border-t-[3px] border-pgm-gold`}>
+          {scorecard.map((c, i) => (
+            <div key={c.label} className={`px-5 sm:px-6 py-5 border-pgm-line ${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t lg:border-t-0' : ''} ${i > 0 ? 'lg:border-l' : ''}`}>
+              <dt className="text-[13px] font-medium text-pgm-ink/70">{c.label}</dt>
+              <dd className="text-[30px] leading-none font-semibold text-pgm-ink tabular-nums tracking-tight mt-2.5">
+                {c.loading ? <span className="inline-block h-7 w-20 bg-pgm-cream rounded animate-pulse align-middle" /> : c.value}
+              </dd>
+              {!c.loading && <dd><Change change={c.change} period={c.sub === cmp ? undefined : c.sub} /></dd>}
+              <dd className="text-[11.5px] text-gray-500 leading-snug mt-2">{c.help}</dd>
+            </div>
+          ))}
+        </dl>
+      </header>
+
+      {warnings.map((w) => <p key={w} className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">{w}</p>)}
+
+      <GoalProgressList goals={goals} />
 
       {/* Enquiries */}
       <Section id="enquiries" title="Enquiries and bookings"
@@ -204,7 +237,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
                 </div>
               )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                {loading ? <><div className="bg-white border border-[#E8E8E8] rounded-2xl h-72 animate-pulse" /><div className="bg-white border border-[#E8E8E8] rounded-2xl h-72 animate-pulse" /></> : (
+                {loading ? <><div className="bg-white border border-pgm-line rounded-xl h-72 animate-pulse" /><div className="bg-white border border-pgm-line rounded-xl h-72 animate-pulse" /></> : (
                   <>
                     <BookingsByDayChart data={overview.data?.dailyBookings ?? []} label={label} notes={notes} />
                     <TrafficSourceChart data={overview.data?.trafficSources ?? []} />
@@ -228,7 +261,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
       {/* Google search */}
       {searchOn ? (
         <Section id="google" title="Google search" intro="How your website shows up when people search on Google (not paid ads). Google’s figures run about two days behind.">
-          {seo.error ? <p className="text-sm text-gray-400 bg-white border border-[#E8E8E8] rounded-2xl p-5">{seo.error}</p> : (
+          {seo.error ? <p className="text-sm text-gray-400 bg-white border border-pgm-line rounded-xl p-5">{seo.error}</p> : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <MetricCard label="Clicks from Google" help="Times someone clicked through to your website from Google search results."
@@ -255,7 +288,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
             <MetricCard label="Cost per click" help="Ad spend divided by clicks." value={paid.data.metrics.cpc?.value ?? '—'} change={0} loading={loading} />
           </div>
           {(paid.data.campaigns ?? []).length > 0 && (
-            <div className="bg-white border border-[#E8E8E8] rounded-2xl overflow-x-auto">
+            <div className="bg-white border border-pgm-line rounded-xl overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="bg-pgm-cream">
                   <th className="text-left px-5 py-3 font-medium text-pgm-ink">Ad campaign</th>

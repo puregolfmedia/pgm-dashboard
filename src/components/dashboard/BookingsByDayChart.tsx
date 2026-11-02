@@ -31,7 +31,7 @@ export default function BookingsByDayChart({ data, label = 'Booking starts', not
   const title = `${label} by day`
 
   return (
-    <div className="bg-white border border-[#E8E8E8] rounded-2xl p-5">
+    <div className="bg-white border border-pgm-line rounded-xl p-5">
       <h2 className="text-sm font-medium text-pgm-ink">{title}</h2>
       <p className="text-xs text-gray-400 mt-0.5 mb-5">
         {label === 'Booking starts'
@@ -60,24 +60,24 @@ export default function BookingsByDayChart({ data, label = 'Booking starts', not
           />
           <Tooltip
             contentStyle={{ borderRadius: 8, border: '1px solid #E8E8E8', fontSize: 12 }}
-            labelStyle={{ color: '#1A2E22', fontWeight: 500 }}
+            labelStyle={{ color: '#142019', fontWeight: 500 }}
           />
           {visibleNotes.map((n, i) => (
             <ReferenceLine
               key={n.id}
               x={formatDate(isoToYmd(n.date))}
-              stroke="#B08D3C"
+              stroke="#B8913A"
               strokeDasharray="4 3"
-              label={{ value: String(i + 1), position: 'insideTopRight', fill: '#B08D3C', fontSize: 10 }}
+              label={{ value: String(i + 1), position: 'insideTopRight', fill: '#B8913A', fontSize: 10 }}
             />
           ))}
           <Line
             type="linear"
             dataKey="bookings"
-            stroke="#006648"
+            stroke="#084724"
             strokeWidth={2}
-            dot={{ r: 2.5, fill: '#006648' }}
-            activeDot={{ r: 4, fill: '#006648' }}
+            dot={{ r: 2.5, fill: '#084724' }}
+            activeDot={{ r: 4, fill: '#084724' }}
             name={label}
           />
         </LineChart>
@@ -86,7 +86,7 @@ export default function BookingsByDayChart({ data, label = 'Booking starts', not
         <ol className="mt-4 space-y-1">
           {visibleNotes.map((n, i) => (
             <li key={n.id} className="text-xs text-gray-500 flex gap-2">
-              <span className="text-[#B08D3C] font-semibold tabular-nums">{i + 1}</span>
+              <span className="text-[#B8913A] font-semibold tabular-nums">{i + 1}</span>
               <span className="text-gray-400 tabular-nums shrink-0">
                 {new Date(n.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
               </span>

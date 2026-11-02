@@ -41,7 +41,7 @@ export default function NewClientPage() {
     <>
       <DashboardHeader title="New Client" />
       <div className="px-8 py-8 max-w-lg">
-        <form onSubmit={handleSubmit} className="bg-white border border-[#E8E8E8] rounded-2xl p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="bg-white border border-pgm-line rounded-xl p-6 space-y-5">
           <Input
             label="Club name"
             placeholder="Colne Valley Golf Club"

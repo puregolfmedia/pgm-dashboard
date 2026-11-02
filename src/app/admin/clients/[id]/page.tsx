@@ -121,7 +121,7 @@ export default function EditClientPage() {
         <ClientHealthBanner clientId={id} />
 
         {/* GA4 config */}
-        <form onSubmit={handleSave} className="bg-white border border-[#E8E8E8] rounded-2xl p-6 space-y-5">
+        <form onSubmit={handleSave} className="bg-white border border-pgm-line rounded-xl p-6 space-y-5">
           <div>
             <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Google Analytics 4</h2>
             <p className="text-xs text-gray-400">
@@ -339,7 +339,7 @@ export default function EditClientPage() {
         <ClientExtrasAdmin clientId={id} intakeToken={client.intakeToken ?? null} />
 
         {/* Password reset */}
-        <form onSubmit={handlePasswordReset} className="bg-white border border-[#E8E8E8] rounded-2xl p-6 space-y-4">
+        <form onSubmit={handlePasswordReset} className="bg-white border border-pgm-line rounded-xl p-6 space-y-4">
           <div>
             <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Reset client password</h2>
             <p className="text-xs text-gray-400">Client will be prompted to change it on next login.</p>

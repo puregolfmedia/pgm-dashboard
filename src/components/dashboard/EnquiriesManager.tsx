@@ -71,7 +71,7 @@ export default function EnquiriesManager({ clientId, isAdmin, data, loading, onC
         <Button size="sm" variant="secondary" onClick={() => setAdding((a) => !a)}>{adding ? 'Cancel' : '+ Add an enquiry'}</Button>
       </div>
             {adding && (
-              <form onSubmit={add} className="bg-white border border-[#E8E8E8] rounded-2xl p-5 space-y-4">
+              <form onSubmit={add} className="bg-white border border-pgm-line rounded-xl p-5 space-y-4">
                 <div>
                   <h2 className="text-sm font-medium text-pgm-ink">Add an enquiry</h2>
                   <p className="text-xs text-gray-400 mt-0.5">For enquiries that came in by phone, email or in person. Website form enquiries appear automatically.</p>
@@ -92,7 +92,7 @@ export default function EnquiriesManager({ clientId, isAdmin, data, loading, onC
                 <Button type="submit">Save enquiry</Button>
               </form>
             )}
-            <div className="bg-white border border-[#E8E8E8] rounded-2xl overflow-hidden">
+            <div className="bg-white border border-pgm-line rounded-xl overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-50 flex items-start justify-between gap-3 flex-wrap">
                 <div>
                   <h2 className="text-sm font-medium text-pgm-ink">All enquiries</h2>

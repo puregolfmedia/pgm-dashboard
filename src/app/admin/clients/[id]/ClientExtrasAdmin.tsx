@@ -5,7 +5,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import type { GoalProgress } from '@/lib/goals'
 
-const card = 'bg-white border border-[#E8E8E8] rounded-2xl p-6 space-y-4'
+const card = 'bg-white border border-pgm-line rounded-xl p-6 space-y-4'
 const today = () => new Date().toISOString().slice(0, 10)
 const METRIC_LABEL = { ENQUIRIES: 'Enquiries received', BOOKINGS: 'Bookings (count)', REVENUE: 'Booked revenue (£)' }
 
