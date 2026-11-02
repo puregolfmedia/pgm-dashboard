@@ -1,9 +1,14 @@
 'use client'
 
 import { useState, FormEvent } from 'react'
-import { signOut } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
+import Link from 'next/link'
 
 export default function ChangePasswordPage() {
+  const { data: session } = useSession()
+  // First login with a temporary password vs. choosing a new one later
+  const forced = (session?.user as any)?.passwordResetRequired !== false
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
@@ -26,7 +31,7 @@ export default function ChangePasswordPage() {
     const res = await fetch('/api/auth/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ newPassword }),
+      body: JSON.stringify({ newPassword, currentPassword }),
     })
     const data = await res.json()
     setLoading(false)
@@ -47,14 +52,31 @@ export default function ChangePasswordPage() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-pgm-green mb-4">
             <span className="text-white text-xl font-bold">PGM</span>
           </div>
-          <h1 className="text-2xl font-semibold text-pgm-ink">Set your password</h1>
-          <p className="text-sm text-gray-500 mt-1">Choose a new password to continue.</p>
+          <h1 className="text-2xl font-semibold text-pgm-ink">{forced ? 'Set your password' : 'Change your password'}</h1>
+          <p className="text-sm text-gray-500 mt-1">{forced ? 'Choose a new password to continue.' : 'You’ll be asked to sign in again with the new password.'}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-5">
+          {!forced && (
+            <div>
+              <label htmlFor="current-password" className="block text-sm font-medium text-pgm-ink mb-1.5">Current password</label>
+              <input
+                id="current-password"
+                type="password"
+                required
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-pgm-ink focus:outline-none focus:ring-2 focus:ring-pgm-green/40 focus:border-pgm-green text-sm transition"
+              />
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-pgm-ink mb-1.5">New password</label>
+            <label htmlFor="new-password" className="block text-sm font-medium text-pgm-ink mb-1.5">New password</label>
             <input
+              id="new-password"
+              autoComplete="new-password"
               type="password"
               required
               minLength={8}
@@ -66,8 +88,10 @@ export default function ChangePasswordPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-pgm-ink mb-1.5">Confirm password</label>
+            <label htmlFor="confirm-password" className="block text-sm font-medium text-pgm-ink mb-1.5">Confirm password</label>
             <input
+              id="confirm-password"
+              autoComplete="new-password"
               type="password"
               required
               value={confirm}
@@ -91,6 +115,11 @@ export default function ChangePasswordPage() {
             {loading ? 'Saving…' : 'Set password & continue'}
           </button>
         </form>
+        {!forced && (
+          <p className="text-center text-xs text-gray-400 mt-6">
+            <Link href="/dashboard" className="underline">Back to dashboard</Link>
+          </p>
+        )}
       </div>
     </div>
   )

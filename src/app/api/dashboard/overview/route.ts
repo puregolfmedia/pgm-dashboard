@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { rangeFromParams } from '@/lib/dateRange'
+import { demoResponse } from '@/lib/demo'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchGA4Overview, fetchGA4DailyBookings, fetchGA4TrafficSources, fetchGA4LandingPages } from '@/lib/ga4'
@@ -17,7 +19,8 @@ export async function GET(request: Request) {
   // ADMIN can pass ?clientId= to view any client
   const url = new URL(request.url)
   const requestedClientId = url.searchParams.get('clientId') ?? clientId
-  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') ?? '30'), 7), 90)
+  const range = rangeFromParams(url.searchParams)
+  const days = range.days
 
   if (user.role !== 'ADMIN' && requestedClientId !== clientId) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'Forbidden' }, { status: 403 })
@@ -27,8 +30,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'No client associated' }, { status: 400 })
   }
 
-  const cacheKey = makeCacheKey(requestedClientId, 'overview', `${days}d`)
-  const cached = cacheGet<any>(cacheKey)
+  const demo = await demoResponse(requestedClientId, 'overview', days)
+  if (demo) return demo
+
+  const cacheKey = makeCacheKey(requestedClientId, 'overview', range.key)
+  const cached = await cacheGet<any>(cacheKey)
   if (cached) {
     return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
   }
@@ -43,19 +49,19 @@ export async function GET(request: Request) {
 
     const [ga4, meta, dailyBookings, trafficSources, landingPages] = await Promise.allSettled([
       config.ga4PropertyId && config.ga4ServiceAccountJson
-        ? fetchGA4Overview(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, days)
+        ? fetchGA4Overview(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range)
         : Promise.resolve(null),
       config.metaAdAccountId && config.metaAccessToken
-        ? fetchMetaOverview(config.metaAdAccountId, config.metaAccessToken, days)
+        ? fetchMetaOverview(config.metaAdAccountId, config.metaAccessToken, range)
         : Promise.resolve(null),
       config.ga4PropertyId && config.ga4ServiceAccountJson
-        ? fetchGA4DailyBookings(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, days)
+        ? fetchGA4DailyBookings(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range)
         : Promise.resolve([]),
       config.ga4PropertyId && config.ga4ServiceAccountJson
-        ? fetchGA4TrafficSources(config.ga4PropertyId, config.ga4ServiceAccountJson, days)
+        ? fetchGA4TrafficSources(config.ga4PropertyId, config.ga4ServiceAccountJson, range)
         : Promise.resolve([]),
       config.ga4PropertyId && config.ga4ServiceAccountJson
-        ? fetchGA4LandingPages(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, days)
+        ? fetchGA4LandingPages(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range)
         : Promise.resolve([]),
     ])
 
@@ -89,47 +95,48 @@ export async function GET(request: Request) {
         sessions: {
           value: formatNumber(ga4Data?.current.sessions ?? 0),
           change: pctChange(ga4Data?.current.sessions ?? 0, ga4Data?.previous.sessions ?? 0),
-          changePeriod: 'vs last 30 days',
+          changePeriod: range.compareLabel,
         },
         bookingStarts: {
           value: formatNumber(ga4Data?.current.bookingStarts ?? 0),
           change: pctChange(ga4Data?.current.bookingStarts ?? 0, ga4Data?.previous.bookingStarts ?? 0),
-          changePeriod: 'vs last 30 days',
+          changePeriod: range.compareLabel,
         },
         costPerBooking: {
           value: costPerBooking !== null ? formatCurrency(costPerBooking) : '—',
           change: costPerBooking !== null && prevCostPerBooking !== null
             ? pctChange(costPerBooking, prevCostPerBooking)
             : 0,
-          changePeriod: 'vs last 30 days',
+          changePeriod: range.compareLabel,
         },
         ctr: {
           value: metaData ? formatPercent(metaData.current.ctr) : '—',
           change: pctChange(metaData?.current.ctr ?? 0, metaData?.previous.ctr ?? 0),
-          changePeriod: 'vs last 30 days',
+          changePeriod: range.compareLabel,
         },
         adSpend: {
           value: metaData ? formatCurrency(metaData.current.spend) : '—',
           change: pctChange(metaData?.current.spend ?? 0, metaData?.previous.spend ?? 0),
-          changePeriod: 'vs last 30 days',
+          changePeriod: range.compareLabel,
         },
         roas: {
           value: metaData?.current.roas ? `${metaData.current.roas.toFixed(1)}x` : '—',
           change: pctChange(metaData?.current.roas ?? 0, metaData?.previous.roas ?? 0),
-          changePeriod: 'vs last 30 days',
+          changePeriod: range.compareLabel,
         },
       },
       dailyBookings: daily,
       trafficSources: traffic,
       landingPages: pages,
       warnings,
+      labels: { booking: config.bookingGoalLabel || null },
     }
 
     // Cache only complete results, so a temporary failure isn't remembered for 5 minutes
     if (warnings.length > 0) {
       return NextResponse.json({ data, lastUpdated: new Date().toISOString(), error: null })
     }
-    const result = cacheSet(cacheKey, data)
+    const result = await cacheSet(cacheKey, data)
     return NextResponse.json({ data, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
   } catch (err) {
     console.error('[overview]', err)

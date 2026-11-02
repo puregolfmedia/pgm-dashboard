@@ -1,5 +1,6 @@
 import { JWT } from 'google-auth-library'
 import { decrypt } from './crypto'
+import { toRange, type DateRange } from './dateRange'
 
 // Google Search Console (Search Analytics API), authenticated with the same
 // service account as GA4. That account must be added as a user on the
@@ -46,22 +47,23 @@ function toTotals(row: any | undefined): SearchTotals {
 export async function fetchSearchConsole(
   siteUrl: string,
   encryptedServiceAccountJson: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<SearchConsoleData> {
   const creds = JSON.parse(decrypt(encryptedServiceAccountJson))
   const client = new JWT({ email: creds.client_email, key: creds.private_key, scopes: [SCOPE] })
 
   // Search Console data runs ~2 days behind, so end the window there to avoid
-  // a misleading dip from incomplete days.
-  const end = new Date()
-  end.setDate(end.getDate() - 2)
-  const start = new Date(end)
-  start.setDate(end.getDate() - (days - 1))
-  const prevEnd = new Date(start)
-  prevEnd.setDate(start.getDate() - 1)
-  const prevStart = new Date(prevEnd)
-  prevStart.setDate(prevEnd.getDate() - (days - 1))
+  // a misleading dip from incomplete days. Presets shift back by 2 days;
+  // custom ranges are cut off at the latest complete day.
+  const r = toRange(days)
   const fmt = (d: Date) => d.toISOString().split('T')[0]
+  const shift = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d }
+  const latest = shift(fmt(new Date()), -2)
+  const lag = r.custom ? 0 : -2
+  let start = shift(r.start, lag), end = shift(r.end, lag)
+  if (end > latest) end = latest
+  if (start > end) start = end
+  const prevStart = shift(r.prevStart, lag), prevEnd = shift(r.prevEnd, lag)
 
   const range = { startDate: fmt(start), endDate: fmt(end) }
 

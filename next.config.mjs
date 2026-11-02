@@ -6,6 +6,12 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@google-analytics/data', 'google-gax', '@grpc/grpc-js'],
   },
+  // The dashboard used to have a tab per area; it's now one page per club.
+  // Old links and bookmarks go to it (the ?viewAs= query is kept).
+  async redirects() {
+    return ['enquiries', 'visitors', 'membership', 'email', 'paid-social', 'pages', 'utms', 'seo', 'report']
+      .map((tab) => ({ source: `/dashboard/${tab}`, destination: '/dashboard', permanent: false }))
+  },
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: false },
   webpack: (config, { isServer }) => {
@@ -34,7 +40,7 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data:",
+              "img-src 'self' data: https:", // club logos are hosted on their own websites
               "font-src 'self'",
               "connect-src 'self'",
               "frame-ancestors 'none'",

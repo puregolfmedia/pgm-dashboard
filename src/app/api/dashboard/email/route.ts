@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { rangeFromParams } from '@/lib/dateRange'
+import { demoResponse } from '@/lib/demo'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchEmailOctopusMetrics } from '@/lib/emailOctopus'
@@ -14,7 +16,8 @@ export async function GET(request: Request) {
   const clientId = user.clientId
   const url = new URL(request.url)
   const requestedClientId = url.searchParams.get('clientId') ?? clientId
-  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') ?? '30'), 7), 90)
+  const range = rangeFromParams(url.searchParams)
+  const days = range.days
 
   if (user.role !== 'ADMIN' && requestedClientId !== clientId) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'Forbidden' }, { status: 403 })
@@ -24,8 +27,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'No client associated' }, { status: 400 })
   }
 
-  const cacheKey = makeCacheKey(requestedClientId, 'email', `${days}d`)
-  const cached = cacheGet<any>(cacheKey)
+  const demo = await demoResponse(requestedClientId, 'email', days)
+  if (demo) return demo
+
+  const cacheKey = makeCacheKey(requestedClientId, 'email', range.key)
+  const cached = await cacheGet<any>(cacheKey)
   if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
 
   const config = await prisma.dataSourceConfig.findUnique({ where: { clientId: requestedClientId } })
@@ -41,9 +47,9 @@ export async function GET(request: Request) {
 
   try {
     const data = provider === 'mailchimp'
-      ? await fetchMailchimpMetrics(config!.mailchimpApiKey!, config!.mailchimpListId!, days)
-      : await fetchEmailOctopusMetrics(config!.emailOctopusApiKey!, days)
-    const result = cacheSet(cacheKey, data)
+      ? await fetchMailchimpMetrics(config!.mailchimpApiKey!, config!.mailchimpListId!, range)
+      : await fetchEmailOctopusMetrics(config!.emailOctopusApiKey!, range)
+    const result = await cacheSet(cacheKey, data)
     return NextResponse.json({ data, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
   } catch (err) {
     console.error(`[email:${provider}]`, err)

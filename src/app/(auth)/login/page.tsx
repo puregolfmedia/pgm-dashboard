@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import Link from 'next/link'
 
 function LoginForm() {
   const router = useRouter()
@@ -105,7 +106,8 @@ function LoginForm() {
         </form>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          Contact Pure Golf Media if you need access.
+          <Link href="/forgot-password" className="underline">Forgotten your password?</Link>
+          {' · '}Contact Pure Golf Media if you need access.
         </p>
       </div>
     </div>

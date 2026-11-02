@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { decrypt } from './crypto'
+import { toRange, type DateRange } from './dateRange'
 
 export interface EmailCampaignSummary {
   id: string
@@ -34,15 +35,16 @@ function datacenterFromApiKey(apiKey: string): string {
 export async function fetchMailchimpMetrics(
   encryptedApiKey: string,
   listId: string,
-  days = 30
+  days: number | DateRange = 30
 ): Promise<EmailMetrics> {
   const apiKey = decrypt(encryptedApiKey)
   const dc = datacenterFromApiKey(apiKey)
   const base = `https://${dc}.api.mailchimp.com/3.0`
   const auth = { username: 'anystring', password: apiKey }
 
-  const since = new Date()
-  since.setDate(since.getDate() - days)
+  const range = toRange(days)
+  const since = new Date(`${range.start}T00:00:00Z`)
+  const until = new Date(`${range.end}T23:59:59Z`)
 
   // Fetch recent sent campaigns for this audience
   const res = await axios.get(`${base}/campaigns`, {
@@ -61,7 +63,7 @@ export async function fetchMailchimpMetrics(
 
   const campaigns = allCampaigns.filter((c: any) => {
     const sentAt = c.send_time ? new Date(c.send_time) : null
-    return sentAt && sentAt >= since
+    return sentAt && sentAt >= since && sentAt <= until
   })
 
   if (campaigns.length === 0) {
@@ -69,23 +71,27 @@ export async function fetchMailchimpMetrics(
   }
 
   // Fetch the per-campaign report for detailed open/click/bounce/unsubscribe stats
-  // (max 10 at a time to avoid hammering the API)
+  // (up to 50, which covers months of sends)
   const reports = await Promise.allSettled(
-    campaigns.slice(0, 10).map((c: any) => axios.get(`${base}/reports/${c.id}`, { auth }))
+    campaigns.slice(0, 50).map((c: any) => axios.get(`${base}/reports/${c.id}`, { auth }))
   )
 
-  const summaries: EmailCampaignSummary[] = campaigns.slice(0, 10).map((c: any, i) => {
+  const summaries: EmailCampaignSummary[] = campaigns.slice(0, 50).map((c: any, i) => {
     const report = reports[i].status === 'fulfilled' ? (reports[i] as PromiseFulfilledResult<any>).value.data : null
 
     const sent = report?.emails_sent ?? c.emails_sent ?? 0
-    const opened = report?.opens?.unique_opens ?? 0
+    // Apple Mail "opens" every email automatically (Mail Privacy Protection),
+    // which inflates opens. Use Mailchimp's figures with those excluded — the
+    // same open rate Mailchimp shows in its own reports — when available.
+    const opened = report?.opens?.proxy_excluded_unique_opens ?? report?.opens?.unique_opens ?? 0
     const clicked = report?.clicks?.unique_subscriber_clicks ?? report?.clicks?.unique_clicks ?? 0
     const bounced = (report?.bounces?.hard_bounces ?? 0) + (report?.bounces?.soft_bounces ?? 0)
     const unsubscribed = report?.unsubscribed ?? 0
 
     // Mailchimp reports open_rate/click_rate as fractions (0–1) already net of hard bounces
-    const openRate = report?.opens?.open_rate != null
-      ? Math.round(report.opens.open_rate * 1000) / 10
+    const rate = report?.opens?.proxy_excluded_open_rate ?? report?.opens?.open_rate
+    const openRate = rate != null
+      ? Math.round(rate * 1000) / 10
       : sent > 0 ? Math.round((opened / sent) * 1000) / 10 : 0
     const clickRate = report?.clicks?.click_rate != null
       ? Math.round(report.clicks.click_rate * 1000) / 10

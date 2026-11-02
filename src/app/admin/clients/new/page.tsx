@@ -11,7 +11,7 @@ export default function NewClientPage() {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [form, setForm] = useState({ name: '', slug: '', username: '', password: '' })
+  const [form, setForm] = useState({ name: '', slug: '', username: '', password: '', isDemo: false })
 
   function set(field: string) {
     return (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [field]: e.target.value }))
@@ -81,6 +81,15 @@ export default function NewClientPage() {
               />
             </div>
           </div>
+
+          <label className="flex items-start gap-3 text-sm text-pgm-ink">
+            <input type="checkbox" className="mt-0.5" checked={form.isDemo}
+              onChange={(e) => setForm((f) => ({ ...f, isDemo: e.target.checked }))} />
+            <span>
+              Demo club (sample data)
+              <span className="block text-xs text-gray-400">Every tab shows realistic made-up numbers, with sample enquiries, goals and notes — for showing prospects what they’d get. No accounts need connecting.</span>
+            </span>
+          </label>
 
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
