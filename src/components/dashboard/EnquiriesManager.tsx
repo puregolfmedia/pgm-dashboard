@@ -1,18 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState, FormEvent } from 'react'
-import { useActiveClient } from '@/lib/useActiveClient'
-import DashboardHeader from '@/components/layout/DashboardHeader'
-import MetricCard from '@/components/dashboard/MetricCard'
-import GoalProgressList from '@/components/dashboard/GoalProgressList'
+import { useEffect, useState, FormEvent } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import FilterBar, { useDateRange, compareText } from '@/components/dashboard/FilterBar'
-import { pctChange } from '@/lib/utils'
-import type { GoalProgress } from '@/lib/goals'
 
-const gbp = (n: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n)
-
+// The enquiries list: add phone/walk-in enquiries, set each one's status and,
+// once booked, its value. Data comes from the parent; onChanged reloads it.
 
 const STATUS_LABEL: Record<string, string> = { NEW: 'New', CONTACTED: 'Contacted', BOOKED: 'Booked', LOST: 'Not going ahead' }
 const STATUS_STYLE: Record<string, string> = {
@@ -24,38 +17,23 @@ const STATUS_STYLE: Record<string, string> = {
 
 const emptyForm = { name: '', email: '', phone: '', category: '', eventDate: '', message: '' }
 
-export default function EnquiriesPage() {
-  const { clientId, isAdmin, ready, missingClientMessage } = useActiveClient()
-  const [range, setRange, rangeQs] = useDateRange()
-  const [data, setData] = useState<any>(null)
-  const [goals, setGoals] = useState<GoalProgress[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export default function EnquiriesManager({ clientId, isAdmin, data, loading, onChanged }: {
+  clientId: string
+  isAdmin: boolean
+  data: any
+  loading: boolean
+  onChanged: () => void
+}) {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [formError, setFormError] = useState('')
+  const [inlineError, setInlineError] = useState('')
+  const load = onChanged
 
-  const load = useCallback(() => {
-    if (!clientId) return
-    fetch(`/api/dashboard/enquiries?clientId=${clientId}&${rangeQs}`)
-      .then((r) => r.json())
-      .then((res) => { if (res.error) setError(res.error); else { setData(res.data); setError(null) } })
-      .catch(() => setError('Failed to load enquiries'))
-      .finally(() => setLoading(false))
-    fetch(`/api/dashboard/goals?clientId=${clientId}`).then((r) => r.json()).then((r) => setGoals(r.data ?? [])).catch(() => {})
-  }, [clientId, rangeQs])
-
-  useEffect(() => {
-    if (!clientId) {
-      if (ready) { setError(missingClientMessage); setLoading(false) }
-      return
-    }
-    setLoading(true)
-    load()
-  }, [clientId, ready, missingClientMessage, load])
+  function alertInline(msg: string) { setInlineError(msg); setTimeout(() => setInlineError(''), 4000) }
 
   async function update(id: string, change: Record<string, unknown>) {
     const res = await fetch(`/api/dashboard/enquiries/${id}`, {
@@ -70,9 +48,6 @@ export default function EnquiriesPage() {
     await fetch(`/api/dashboard/enquiries/${id}`, { method: 'DELETE' })
     load()
   }
-
-  const [inlineError, setInlineError] = useState('')
-  function alertInline(msg: string) { setInlineError(msg); setTimeout(() => setInlineError(''), 4000) }
 
   async function add(e: FormEvent) {
     e.preventDefault()
@@ -89,24 +64,12 @@ export default function EnquiriesPage() {
   const rows: any[] = (data?.enquiries ?? []).filter((e: any) =>
     (statusFilter === 'ALL' || e.status === statusFilter) &&
     (categoryFilter === 'ALL' || (e.category ?? '') === categoryFilter))
-  const s = data?.summary
-  const p = data?.previous
 
   return (
-    <>
-      <DashboardHeader title="Enquiries" />
-      <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <FilterBar value={range} onChange={setRange} />
-          {clientId && <Button size="sm" onClick={() => setAdding((a) => !a)}>{adding ? 'Cancel' : '+ Add enquiry'}</Button>}
-        </div>
-
-        {error ? (
-          <div className="bg-white border border-[#E8E8E8] rounded-2xl p-6 text-center">
-            <p className="text-sm text-gray-400">{error}</p>
-          </div>
-        ) : (
-          <>
+    <div className="space-y-4">
+      <div className="flex justify-end print:hidden">
+        <Button size="sm" variant="secondary" onClick={() => setAdding((a) => !a)}>{adding ? 'Cancel' : '+ Add an enquiry'}</Button>
+      </div>
             {adding && (
               <form onSubmit={add} className="bg-white border border-[#E8E8E8] rounded-2xl p-5 space-y-4">
                 <div>
@@ -129,16 +92,6 @@ export default function EnquiriesPage() {
                 <Button type="submit">Save enquiry</Button>
               </form>
             )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <MetricCard label="Enquiries received" value={s ? String(s.total) : '—'} change={s && p ? pctChange(s.total, p.total) : 0} changePeriod={compareText(range)} loading={loading} />
-              <MetricCard label="Still to follow up" help="New or contacted enquiries that aren’t booked or closed yet." value={s ? String(s.open) : '—'} change={0} loading={loading} />
-              <MetricCard label="Enquiries booked" value={s ? `${s.booked} (${s.conversionRate}%)` : '—'} change={s && p ? pctChange(s.booked, p.booked) : 0} changePeriod={compareText(range)} loading={loading} />
-              <MetricCard label="Booked revenue" value={s ? gbp(s.bookedValue) : '—'} change={s && p ? pctChange(s.bookedValue, p.bookedValue) : 0} changePeriod={compareText(range)} loading={loading} />
-            </div>
-
-            <GoalProgressList goals={goals} />
-
             <div className="bg-white border border-[#E8E8E8] rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-50 flex items-start justify-between gap-3 flex-wrap">
                 <div>
@@ -187,10 +140,7 @@ export default function EnquiriesPage() {
                 </table>
               </div>
             </div>
-          </>
-        )}
-      </div>
-    </>
+    </div>
   )
 }
 

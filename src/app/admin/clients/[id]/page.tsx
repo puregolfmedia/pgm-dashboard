@@ -34,6 +34,7 @@ export default function EditClientPage() {
     membershipGoalLabel: '',
     logoUrl: '',
     brandColor: '',
+    reportingStartDate: '',
   })
 
   const [newPassword, setNewPassword] = useState('')
@@ -44,7 +45,7 @@ export default function EditClientPage() {
       .then((res) => {
         setClient(res.data)
         const cfg = res.data?.dataConfig
-        const branding = { logoUrl: res.data?.logoUrl ?? '', brandColor: res.data?.brandColor ?? '' }
+        const branding = { logoUrl: res.data?.logoUrl ?? '', brandColor: res.data?.brandColor ?? '', reportingStartDate: res.data?.reportingStartDate ? String(res.data.reportingStartDate).slice(0, 10) : '' }
         setForm((f) => ({ ...f, ...branding }))
         if (cfg) {
           setForm({
@@ -289,6 +290,15 @@ export default function EditClientPage() {
           </div>
 
           <div className="border-t border-gray-100 pt-5">
+            <div className="mb-5">
+              <Input
+                label="Our work started on"
+                hint="Email results on the club’s dashboard are shown from this date (e.g. 1 October 2026)."
+                type="date"
+                value={form.reportingStartDate}
+                onChange={set('reportingStartDate')}
+              />
+            </div>
             <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Club branding</h2>
             <p className="text-xs text-gray-400 mb-4">Shown in the club’s dashboard sidebar, so it feels like their own.</p>
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-4">

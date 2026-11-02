@@ -6,17 +6,9 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import ClubBrand from './ClubBrand'
 
+// Each club has one dashboard page; older tab addresses redirect to it (next.config.mjs)
 const navItems = [
-  { label: 'Overview',    href: '/dashboard' },
-  { label: 'Enquiries',   href: '/dashboard/enquiries' },
-  { label: 'Visitors',    href: '/dashboard/visitors' },
-  { label: 'Membership',  href: '/dashboard/membership' },
-  { label: 'Email',       href: '/dashboard/email' },
-  { label: 'Paid Social', href: '/dashboard/paid-social' },
-  { label: 'Pages',       href: '/dashboard/pages' },
-  { label: 'Google Search', href: '/dashboard/seo' },
-  { label: 'UTMs',        href: '/dashboard/utms' },
-  { label: 'Monthly report', href: '/dashboard/report' },
+  { label: 'Dashboard', href: '/dashboard' },
 ]
 
 function NavContent({ isAdmin, pathname, viewAs, onNav }: { isAdmin?: boolean; pathname: string; viewAs?: string | null; onNav?: () => void }) {

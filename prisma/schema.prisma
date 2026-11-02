@@ -40,6 +40,8 @@ model Client {
   // Club branding on its dashboard
   logoUrl     String?
   brandColor  String?
+  // When Pure Golf Media's work started; email results are shown from here on
+  reportingStartDate DateTime?
   enquiries   Enquiry[]
   goals       Goal[]
   notes       Note[]

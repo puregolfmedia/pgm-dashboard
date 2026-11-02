@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   if (access instanceof NextResponse) return access
   const club = await prisma.client.findUnique({
     where: { id: access.clientId },
-    select: { name: true, logoUrl: true, brandColor: true, isDemo: true },
+    select: { name: true, logoUrl: true, brandColor: true, isDemo: true, reportingStartDate: true },
   })
   if (!club) return NextResponse.json({ data: null, error: 'Not found' }, { status: 404 })
   return NextResponse.json({ data: club, error: null })

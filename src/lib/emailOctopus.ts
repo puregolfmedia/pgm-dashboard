@@ -54,14 +54,14 @@ export async function fetchEmailOctopusMetrics(
 
   // Fetch report summaries for each campaign in parallel (max 10 to avoid hammering the API)
   const reports = await Promise.allSettled(
-    campaigns.slice(0, 10).map((c: any) =>
+    campaigns.slice(0, 50).map((c: any) =>
       axios.get(`${BASE}/campaigns/${c.id}/reports/summary`, {
         params: { api_key: apiKey },
       })
     )
   )
 
-  const summaries: EmailCampaignSummary[] = campaigns.slice(0, 10).map((c: any, i) => {
+  const summaries: EmailCampaignSummary[] = campaigns.slice(0, 50).map((c: any, i) => {
     const report = reports[i].status === 'fulfilled' ? reports[i].value.data : null
     const sent = report?.sent ?? 0
     const opened = report?.opens?.unique ?? 0

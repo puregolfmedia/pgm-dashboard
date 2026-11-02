@@ -57,6 +57,7 @@ export const sectionHelp: Record<string, string> = {
 }
 
 export const pageHelp: Record<string, string> = {
+  'Your dashboard': 'Everything we track for your club, on one page. Each section explains what its numbers mean — choose the dates at the top.',
   'Overview': 'Your headline numbers at a glance. Arrows compare with the previous period of the same length.',
   'Visitors': 'Who is visiting your website and how they behave.',
   'Membership': 'Interest in membership generated through your website.',

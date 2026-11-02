@@ -71,12 +71,12 @@ export async function fetchMailchimpMetrics(
   }
 
   // Fetch the per-campaign report for detailed open/click/bounce/unsubscribe stats
-  // (max 10 at a time to avoid hammering the API)
+  // (up to 50, which covers months of sends)
   const reports = await Promise.allSettled(
-    campaigns.slice(0, 10).map((c: any) => axios.get(`${base}/reports/${c.id}`, { auth }))
+    campaigns.slice(0, 50).map((c: any) => axios.get(`${base}/reports/${c.id}`, { auth }))
   )
 
-  const summaries: EmailCampaignSummary[] = campaigns.slice(0, 10).map((c: any, i) => {
+  const summaries: EmailCampaignSummary[] = campaigns.slice(0, 50).map((c: any, i) => {
     const report = reports[i].status === 'fulfilled' ? (reports[i] as PromiseFulfilledResult<any>).value.data : null
 
     const sent = report?.emails_sent ?? c.emails_sent ?? 0

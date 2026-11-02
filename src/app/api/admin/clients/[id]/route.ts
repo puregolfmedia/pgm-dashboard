@@ -42,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const body = await request.json()
   const { ga4PropertyId, ga4ServiceAccountJson, ga4BookingEventName, ga4MembershipEventName,
           metaAdAccountId, metaAccessToken, emailOctopusApiKey,
-          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, bookingGoalLabel, membershipGoalLabel, logoUrl, brandColor, newPassword } = body
+          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, bookingGoalLabel, membershipGoalLabel, logoUrl, brandColor, reportingStartDate, newPassword } = body
 
   // Handle password reset
   if (newPassword) {
@@ -51,6 +51,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       where: { clientId: params.id, role: 'CLIENT' },
       data: { passwordHash, passwordResetRequired: true },
     })
+  }
+
+  // When our work started (email results are shown from this date)
+  if (reportingStartDate !== undefined) {
+    const d = typeof reportingStartDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(reportingStartDate) ? new Date(`${reportingStartDate}T00:00:00Z`) : null
+    if (reportingStartDate && !d) return NextResponse.json({ data: null, error: 'Enter the start date as a date' }, { status: 400 })
+    await prisma.client.update({ where: { id: params.id }, data: { reportingStartDate: d } })
   }
 
   // Branding

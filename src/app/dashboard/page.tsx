@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import DashboardHeader from '@/components/layout/DashboardHeader'
-import OverviewContent from './OverviewContent'
+import ClubDashboard from './ClubDashboard'
 
 export default async function DashboardPage({ searchParams }: { searchParams: { viewAs?: string } }) {
   const session = await auth()
@@ -14,8 +14,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   return (
     <>
-      <DashboardHeader title="Overview" />
-      <OverviewContent clientId={clientId} isAdmin={isAdmin} />
+      <div className="print:hidden"><DashboardHeader title="Your dashboard" /></div>
+      <ClubDashboard clientId={clientId} isAdmin={isAdmin} />
     </>
   )
 }
