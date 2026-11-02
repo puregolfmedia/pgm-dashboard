@@ -16,9 +16,9 @@ const badge: Record<GoalProgress['status'], { text: string; cls: string }> = {
 export default function GoalProgressList({ goals }: { goals: GoalProgress[] }) {
   if (goals.length === 0) return null
   return (
-    <div className="bg-white border border-[#E8E8E8] rounded-2xl p-5">
-      <h2 className="text-sm font-medium text-pgm-ink">Goals</h2>
-      <p className="text-xs text-gray-400 mt-0.5 mb-4">
+    <div className="bg-white border border-pgm-line rounded-xl p-5">
+      <h2 className="font-serif text-xl font-semibold text-pgm-green">Goals</h2>
+      <p className="text-sm text-gray-600 mt-1 mb-5">
         Progress towards each target. The small marker shows where you’d expect to be by today if progress were steady.
       </p>
       <div className="space-y-5">

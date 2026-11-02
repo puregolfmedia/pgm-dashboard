@@ -9,15 +9,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Pure Golf Media brand: fairway green, gold, silver, white
         pgm: {
-          green:  '#006648',
-          cream:  '#F4F1E8',
+          green:  '#084724', // fairway — brand green
+          deep:   '#06361B', // darker fairway, for text on light green
+          gold:   '#B8913A', // progress, highlights, work-done markers
+          cream:  '#EEF2EE', // table headers (cool, light green-grey)
+          page:   '#F3F5F2', // page background
+          line:   '#D9DFDA', // hairline rules
           silver: '#C6C6C6',
-          ink:    '#1A2E22',
+          ink:    '#142019',
         },
       },
       fontFamily: {
-        sans: ['Calibri', 'Trebuchet MS', 'sans-serif'],
+        sans: ['"Public Sans Variable"', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        serif: ['"Source Serif 4 Variable"', 'Georgia', 'serif'],
       },
     },
   },

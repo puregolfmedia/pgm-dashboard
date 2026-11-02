@@ -12,7 +12,7 @@ export default function ClientHealthBanner({ clientId }: { clientId: string }) {
   }, [clientId])
   if (!h) return null
   return (
-    <div className="bg-white border border-[#E8E8E8] rounded-2xl p-5 space-y-2">
+    <div className="bg-white border border-pgm-line rounded-xl p-5 space-y-2">
       <div className="flex items-center gap-3">
         <h2 className="text-sm font-semibold text-pgm-ink">Tracking health</h2>
         <span className={`text-xs font-medium border rounded-full px-2.5 py-0.5 ${LEVEL[h.level]?.cls}`}>{LEVEL[h.level]?.text}</span>

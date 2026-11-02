@@ -24,9 +24,6 @@ function NavContent({ isAdmin, pathname, viewAs, onNav }: { isAdmin?: boolean; p
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        <p className="text-pgm-silver/50 text-xs uppercase tracking-widest px-3 pb-2 pt-1">
-          Performance
-        </p>
         {navItems.map((item) => {
           const isActive = pathname === item.href
           return (
@@ -36,7 +33,7 @@ function NavContent({ isAdmin, pathname, viewAs, onNav }: { isAdmin?: boolean; p
               onClick={onNav}
               className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                 isActive
-                  ? 'bg-pgm-green/15 text-pgm-green border-l-2 border-pgm-green pl-[10px]'
+                  ? 'bg-white/10 text-white font-medium border-l-2 border-pgm-gold pl-[10px]'
                   : 'text-pgm-silver hover:text-white hover:bg-white/5'
               }`}
             >
@@ -47,15 +44,15 @@ function NavContent({ isAdmin, pathname, viewAs, onNav }: { isAdmin?: boolean; p
 
         {isAdmin && (
           <>
-            <p className="text-pgm-silver/50 text-xs uppercase tracking-widest px-3 pb-2 pt-5">
-              Admin
+            <p className="text-pgm-silver/50 text-xs px-3 pb-2 pt-5">
+              Pure Golf Media
             </p>
             <Link
               href="/admin"
               onClick={onNav}
               className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                 pathname.startsWith('/admin')
-                  ? 'bg-pgm-green/15 text-pgm-green border-l-2 border-pgm-green pl-[10px]'
+                  ? 'bg-white/10 text-white font-medium border-l-2 border-pgm-gold pl-[10px]'
                   : 'text-pgm-silver hover:text-white hover:bg-white/5'
               }`}
             >

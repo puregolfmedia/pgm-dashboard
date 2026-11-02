@@ -7,7 +7,7 @@ const nf = (n: number) => new Intl.NumberFormat('en-GB').format(n)
 /** Every email campaign since the club's start date, with open and click rates. */
 export default function EmailCampaigns({ data, loading, error }: { data: any; loading: boolean; error: string | null }) {
   if (error) {
-    return <p className="text-sm text-gray-400 bg-white border border-[#E8E8E8] rounded-2xl p-5">{error}</p>
+    return <p className="text-sm text-gray-400 bg-white border border-pgm-line rounded-xl p-5">{error}</p>
   }
   const campaigns: any[] = data?.campaigns ?? []
   return (
@@ -23,7 +23,7 @@ export default function EmailCampaigns({ data, loading, error }: { data: any; lo
           value={data ? `${data.avgClickRate}%` : '—'} />
       </div>
 
-      <div className="bg-white border border-[#E8E8E8] rounded-2xl overflow-hidden">
+      <div className="bg-white border border-pgm-line rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
