@@ -65,23 +65,42 @@ export function demoData(kind: Kind, days: number): unknown {
         labels: { booking: 'Christmas enquiries' },
       }
     }
-    case 'visitors':
+    case 'visitors': {
+      const r = rng(23)
+      const dailySessions = Array.from({ length: days }, (_, i) => {
+        const d = new Date()
+        d.setDate(d.getDate() - (days - 1 - i))
+        const weekend = d.getDay() === 0 || d.getDay() === 6 ? 1.3 : 1
+        const base = 139 * weekend * (0.85 + (i / days) * 0.3)
+        return {
+          date: d.toISOString().slice(0, 10).replace(/-/g, ''),
+          sessions: Math.round(base * (0.8 + r() * 0.4)),
+          previous: Math.round(base * 0.82 * (0.8 + r() * 0.4)),
+        }
+      })
       return {
         totalUsers: Math.round(3050 * scale), newUsers: Math.round(2210 * scale), sessions: Math.round(4180 * scale),
-        bounceRate: 0.38, avgSessionDuration: 112,
+        bounceRate: 0.38, avgSessionDuration: 112, pagesPerSession: 2.8, engagementRate: 0.62,
+        previous: {
+          totalUsers: Math.round(2640 * scale), newUsers: Math.round(1930 * scale), sessions: Math.round(3540 * scale),
+          avgSessionDuration: 101, pagesPerSession: 2.6, engagementRate: 0.58,
+        },
         deviceBreakdown: [
           { device: 'mobile', sessions: Math.round(2840 * scale) },
           { device: 'desktop', sessions: Math.round(1180 * scale) },
           { device: 'tablet', sessions: Math.round(160 * scale) },
         ],
         channelBreakdown: [
-          { channel: 'Organic Search', users: Math.round(1290 * scale) },
-          { channel: 'Direct', users: Math.round(860 * scale) },
-          { channel: 'Paid Social', users: Math.round(520 * scale) },
-          { channel: 'Organic Social', users: Math.round(250 * scale) },
-          { channel: 'Email', users: Math.round(130 * scale) },
+          { channel: 'Organic Search', sessions: Math.round(1650 * scale), users: Math.round(1290 * scale), enquiries: Math.round(34 * scale) },
+          { channel: 'Direct', sessions: Math.round(1120 * scale), users: Math.round(860 * scale), enquiries: Math.round(21 * scale) },
+          { channel: 'Paid Social', sessions: Math.round(640 * scale), users: Math.round(520 * scale), enquiries: Math.round(38 * scale) },
+          { channel: 'Organic Social', sessions: Math.round(380 * scale), users: Math.round(250 * scale), enquiries: Math.round(4 * scale) },
+          { channel: 'Email', sessions: Math.round(250 * scale), users: Math.round(130 * scale), enquiries: Math.round(13 * scale) },
+          { channel: 'Referral', sessions: Math.round(140 * scale), users: Math.round(110 * scale), enquiries: Math.round(2 * scale) },
         ],
+        dailySessions,
       }
+    }
     case 'membership': {
       const trend = daily(days, 1, 11)
       const enquiries = trend.reduce((s, d) => s + d.bookings, 0)
@@ -182,6 +201,16 @@ function demoPages(scale: number) {
     { page: '/weddings/', sessions: 330, bookingStarts: 9 },
     { page: '/membership/', sessions: 290, bookingStarts: 6 },
     { page: '/visitors/green-fees/', sessions: 240, bookingStarts: 3 },
+    { page: '/clubhouse/', sessions: 205, bookingStarts: 7 },
+    { page: '/contact-us/', sessions: 180, bookingStarts: 12 },
+    { page: '/christmas-parties/menus/', sessions: 150, bookingStarts: 14 },
+    { page: '/societies/', sessions: 120, bookingStarts: 2 },
+    { page: '/the-course/', sessions: 110, bookingStarts: 0 },
+    { page: '/news/new-years-eve-party/', sessions: 95, bookingStarts: 5 },
+    { page: '/weddings/gallery/', sessions: 70, bookingStarts: 1 },
+    { page: '/clubhouse/function-rooms/', sessions: 60, bookingStarts: 3 },
+    { page: '/junior-golf/', sessions: 45, bookingStarts: 0 },
+    { page: '/membership/categories/', sessions: 40, bookingStarts: 1 },
   ].map((p) => {
     const sessions = Math.round(p.sessions * scale)
     const bookingStarts = Math.round(p.bookingStarts * scale)

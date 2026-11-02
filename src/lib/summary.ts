@@ -16,47 +16,42 @@ export interface SummaryInput {
   seo?: any
 }
 
-export function buildSummary(d: SummaryInput, compareLabel: string): string[] {
-  // "up 18% vs prior 30 days" / "the same as …"
+/**
+ * Up to four one-line headlines, most important first. The comparison period
+ * is stated once in the page header, so lines just say "up 18%".
+ */
+export function buildSummary(d: SummaryInput, _compareLabel?: string): string[] {
   const trend = (change: number | null | undefined) => {
     if (change == null || !Number.isFinite(change)) return ''
-    if (change === 0) return ` — about the same (${compareLabel})`
-    return ` — ${change > 0 ? 'up' : 'down'} ${Math.abs(change)}% ${compareLabel}`
+    if (change === 0) return ', about the same'
+    return `, ${change > 0 ? 'up' : 'down'} ${Math.abs(change)}%`
   }
 
   const lines: string[] = []
   const m = d.overview?.metrics
   const label = d.overview?.labels?.booking ?? 'booking starts'
 
-  if (m && num(m.sessions.value) > 0) {
-    lines.push(`${m.sessions.value} visits to the website${trend(m.sessions.change)}.`)
-    const top = d.overview.trafficSources?.[0]
-    if (top) lines.push(`Most visits came from ${friendlySource(top.source)}.`)
-  }
-  if (m && num(m.bookingStarts.value) > 0) {
-    lines.push(`${m.bookingStarts.value} ${label} recorded on the website${trend(m.bookingStarts.change)}.`)
-  }
-  const e = d.enquiries
-  if (e?.summary?.total > 0) {
-    const booked = e.summary.booked
-    lines.push(`${e.summary.total} enquir${e.summary.total === 1 ? 'y' : 'ies'} received, ${booked} booked${booked ? ` (worth ${gbp(e.summary.bookedValue)})` : ''}.`)
-    if (e.summary.open > 0) lines.push(`${e.summary.open} enquir${e.summary.open === 1 ? 'y is' : 'ies are'} still to be followed up.`)
+  if (m && num(m.sessions.value) > 0) lines.push(`${m.sessions.value} website visits${trend(m.sessions.change)}`)
+  if (m && num(m.bookingStarts.value) > 0) lines.push(`${m.bookingStarts.value} ${label === 'booking starts' || label === 'Booking starts' ? 'booking starts' : label} on the website${trend(m.bookingStarts.change)}`)
+  const e = d.enquiries?.summary
+  if (e?.total > 0) {
+    lines.push(`${e.total} enquir${e.total === 1 ? 'y' : 'ies'} received, ${e.booked} booked${e.booked ? ` (${gbp(e.bookedValue)})` : ''}`)
   }
   if (d.email?.campaigns?.length) {
-    const n = d.email.campaigns.length
-    const since = d.emailSince ? ` since ${new Date(d.emailSince).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ''
-    lines.push(`${n} email${n === 1 ? '' : 's'} sent${since}: on average ${d.email.avgOpenRate}% of people opened them and ${d.email.avgClickRate}% clicked a link.`)
+    lines.push(`Emails: ${d.email.avgOpenRate}% opened, ${d.email.avgClickRate}% clicked a link`)
   }
   const p = d.paid?.metrics
   if (p && num(p.spend.value) > 0) {
-    lines.push(`${p.spend.value} spent on Facebook & Instagram ads, shown ${p.impressions.value} times and clicked ${p.clicks.value} times${p.roas.value !== '—' ? `, returning ${p.roas.value} the spend` : ''}.`)
+    lines.push(`${p.spend.value} on Facebook & Instagram ads${p.roas.value !== '—' ? `, returning ${p.roas.value}` : ''}`)
   }
   const s = d.seo?.current
   if (s && s.impressions > 0) {
     const prev = d.seo.previous
-    lines.push(`${nf(s.clicks)} people clicked through to the website from Google search${trend(prev ? pctChange(s.clicks, prev.clicks) : null)}.`)
+    lines.push(`${nf(s.clicks)} visits from Google search${trend(prev ? pctChange(s.clicks, prev.clicks) : null)}`)
   }
-  return lines
+  const top = d.overview?.trafficSources?.[0]
+  if (top) lines.push(`Most visits came from ${friendlySource(top.source)}`)
+  return lines.slice(0, 4)
 }
 
 /** GA4 channel names in everyday words. */

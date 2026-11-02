@@ -176,7 +176,7 @@ export async function fetchGA4LandingPages(
       metrics: [{ name: 'sessions' }],
       dimensionFilter: notSetFilter,
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
-      limit: 20,
+      limit: 50,
     }),
     client.runReport({
       property: `properties/${propertyId}`,
@@ -296,69 +296,130 @@ export async function fetchGA4UTMs(
   })
 }
 
-export interface GA4VisitorMetrics {
+export interface VisitorTotals {
   totalUsers: number
   newUsers: number
   sessions: number
-  bounceRate: number
   avgSessionDuration: number
+  pagesPerSession: number
+  engagementRate: number
+}
+
+export interface GA4VisitorMetrics extends VisitorTotals {
+  bounceRate: number
+  previous: VisitorTotals
   deviceBreakdown: { device: string; sessions: number }[]
-  channelBreakdown: { channel: string; users: number }[]
+  channelBreakdown: { channel: string; sessions: number; users: number; enquiries: number }[]
+  /** One row per day of the chosen dates; `previous` is the matching day of the comparison period */
+  dailySessions: { date: string; sessions: number; previous: number }[]
 }
 
 export async function fetchGA4Visitors(
   propertyId: string,
   encryptedServiceAccountJson: string,
+  bookingEventName: string,
   days: number | DateRange = 30
 ): Promise<GA4VisitorMetrics> {
   const client = getClient(encryptedServiceAccountJson)
-  const { start, end } = toRange(days)
-  const fmt = (d: string) => d
+  const r = toRange(days)
+  const property = `properties/${propertyId}`
+  const current = [{ startDate: r.start, endDate: r.end }]
+  const both = [
+    { startDate: r.start, endDate: r.end, name: 'current' },
+    { startDate: r.prevStart, endDate: r.prevEnd, name: 'previous' },
+  ]
 
-  const [summary, devices, channels] = await Promise.all([
+  const [[summary], [devices], [channels], [channelBookings], [dailyNow], [dailyPrev]] = await Promise.all([
     client.runReport({
-      property: `properties/${propertyId}`,
-      dateRanges: [{ startDate: fmt(start), endDate: fmt(end) }],
+      property,
+      dateRanges: both,
       metrics: [
-        { name: 'totalUsers' },
-        { name: 'newUsers' },
-        { name: 'sessions' },
-        { name: 'bounceRate' },
-        { name: 'averageSessionDuration' },
+        { name: 'totalUsers' }, { name: 'newUsers' }, { name: 'sessions' }, { name: 'bounceRate' },
+        { name: 'averageSessionDuration' }, { name: 'screenPageViewsPerSession' }, { name: 'engagementRate' },
       ],
     }),
     client.runReport({
-      property: `properties/${propertyId}`,
-      dateRanges: [{ startDate: fmt(start), endDate: fmt(end) }],
+      property,
+      dateRanges: current,
       dimensions: [{ name: 'deviceCategory' }],
       metrics: [{ name: 'sessions' }],
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
     }),
     client.runReport({
-      property: `properties/${propertyId}`,
-      dateRanges: [{ startDate: fmt(start), endDate: fmt(end) }],
+      property,
+      dateRanges: current,
       dimensions: [{ name: 'sessionDefaultChannelGroup' }],
-      metrics: [{ name: 'totalUsers' }],
-      orderBys: [{ metric: { metricName: 'totalUsers' }, desc: true }],
-      limit: 8,
+      metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      limit: 10,
+    }),
+    client.runReport({
+      property,
+      dateRanges: current,
+      dimensions: [{ name: 'sessionDefaultChannelGroup' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: bookingEventName, matchType: 'EXACT' } } },
+      limit: 50,
+    }),
+    client.runReport({ property, dateRanges: current, dimensions: [{ name: 'date' }], metrics: [{ name: 'sessions' }] }),
+    client.runReport({
+      property,
+      dateRanges: [{ startDate: r.prevStart, endDate: r.prevEnd }],
+      dimensions: [{ name: 'date' }],
+      metrics: [{ name: 'sessions' }],
     }),
   ])
 
-  const s = summary[0].rows?.[0]
+  // With two date ranges and no other dimension, GA4 labels each row with the range name
+  const totals = (name: string) => {
+    const row = summary.rows?.find((x: any) => x.dimensionValues?.[0]?.value === name)
+    const v = (i: number) => parseFloat(row?.metricValues?.[i]?.value ?? '0')
+    return {
+      totalUsers: v(0), newUsers: v(1), sessions: v(2), bounceRate: v(3),
+      avgSessionDuration: v(4), pagesPerSession: v(5), engagementRate: v(6),
+    }
+  }
+  const now = totals('current')
+  const { bounceRate: _ignored, ...prevTotals } = totals('previous')
+
+  const toMap = (rows: any[] | null | undefined) => {
+    const m = new Map<string, number>()
+    for (const x of rows ?? []) m.set(x.dimensionValues?.[0]?.value ?? '', parseInt(x.metricValues?.[0]?.value ?? '0'))
+    return m
+  }
+  const bookingsByChannel = toMap(channelBookings.rows)
+  const nowByDay = toMap(dailyNow.rows)
+  const prevByDay = toMap(dailyPrev.rows)
+
+  // Every day of the period, lined up with the same position in the comparison period
+  const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '')
+  const day = new Date(`${r.start}T12:00:00Z`)
+  const prevDay = new Date(`${r.prevStart}T12:00:00Z`)
+  const last = r.end.replace(/-/g, '')
+  const dailySessions: GA4VisitorMetrics['dailySessions'] = []
+  while (ymd(day) <= last) {
+    dailySessions.push({ date: ymd(day), sessions: nowByDay.get(ymd(day)) ?? 0, previous: prevByDay.get(ymd(prevDay)) ?? 0 })
+    day.setUTCDate(day.getUTCDate() + 1)
+    prevDay.setUTCDate(prevDay.getUTCDate() + 1)
+  }
+
   return {
-    totalUsers: parseInt(s?.metricValues?.[0]?.value ?? '0'),
-    newUsers: parseInt(s?.metricValues?.[1]?.value ?? '0'),
-    sessions: parseInt(s?.metricValues?.[2]?.value ?? '0'),
-    bounceRate: parseFloat(s?.metricValues?.[3]?.value ?? '0'),
-    avgSessionDuration: parseFloat(s?.metricValues?.[4]?.value ?? '0'),
-    deviceBreakdown: (devices[0].rows ?? []).map((r) => ({
-      device: r.dimensionValues?.[0]?.value ?? '',
-      sessions: parseInt(r.metricValues?.[0]?.value ?? '0'),
+    ...now,
+    previous: prevTotals,
+    deviceBreakdown: (devices.rows ?? []).map((x) => ({
+      device: x.dimensionValues?.[0]?.value ?? '',
+      sessions: parseInt(x.metricValues?.[0]?.value ?? '0'),
     })),
-    channelBreakdown: (channels[0].rows ?? []).map((r) => ({
-      channel: r.dimensionValues?.[0]?.value ?? '',
-      users: parseInt(r.metricValues?.[0]?.value ?? '0'),
-    })),
+    channelBreakdown: (channels.rows ?? []).map((x) => {
+      const channel = x.dimensionValues?.[0]?.value ?? ''
+      return {
+        channel,
+        sessions: parseInt(x.metricValues?.[0]?.value ?? '0'),
+        users: parseInt(x.metricValues?.[1]?.value ?? '0'),
+        enquiries: bookingsByChannel.get(channel) ?? 0,
+      }
+    }),
+    dailySessions,
   }
 }
 

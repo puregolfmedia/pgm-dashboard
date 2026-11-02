@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import MetricCard, { Change } from '@/components/dashboard/MetricCard'
 import BookingsByDayChart, { type ChartNote } from '@/components/dashboard/BookingsByDayChart'
-import TrafficSourceChart from '@/components/dashboard/TrafficSourceChart'
+import VisitsByDayChart from '@/components/dashboard/website/VisitsByDayChart'
+import VisitLengthCard from '@/components/dashboard/website/VisitLengthCard'
+import DeviceBreakdown from '@/components/dashboard/website/DeviceBreakdown'
+import ChannelBreakdown from '@/components/dashboard/website/ChannelBreakdown'
 import TopLandingPagesTable from '@/components/dashboard/TopLandingPagesTable'
 import FilterBar, { useDateRange, compareText } from '@/components/dashboard/FilterBar'
 import GoalProgressList from '@/components/dashboard/GoalProgressList'
@@ -22,7 +25,6 @@ import type { GoalProgress } from '@/lib/goals'
 
 const nf = (n: number) => new Intl.NumberFormat('en-GB').format(Math.round(n))
 const gbp = (n: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n)
-const minsSecs = (s: number) => `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s`
 const longDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
 interface Loaded<T> { data: T | null; error: string | null }
@@ -117,6 +119,9 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   const websiteOn = !notConnected(overview.error)
   const brief = loading ? [] : buildSummary({ overview: overview.data, enquiries: enquiries.data, email: email.data, emailSince, paid: paid.data, seo: seo.data }, cmp)
   const warnings: string[] = overview.data?.warnings ?? []
+  // Older cached visitor data lacks the daily and comparison figures
+  const v = visitors.data?.dailySessions ? visitors.data : null
+  const compareName = cmp.replace(/^vs /, '').replace(/^prior/, 'the previous')
 
   const scorecard: { label: string; value: string; change: number; sub?: string; help: string; loading: boolean }[] = [
     ...(websiteOn ? [
@@ -167,7 +172,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
           <div>
             <div className="flex items-center gap-4">
               {club?.logoUrl && (
-                <span className="w-14 h-14 rounded-xl bg-white p-1.5 flex items-center justify-center shrink-0">
+                <span className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={club.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
                 </span>
@@ -176,7 +181,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
             </div>
             <p className="text-white/75 text-[15px] mt-4">
               Marketing results for {range.from && range.to ? `${longDate(range.from)} to ${longDate(range.to)}` : `the last ${range.days} days`},
-              compared with {cmp.replace(/^vs /, '').replace(/^prior/, 'the previous')}.
+              compared with {compareName}.
               <span className="text-white/50"> Prepared by Pure Golf Media.</span>
             </p>
           </div>
@@ -185,10 +190,10 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
             {loading ? (
               <div className="space-y-2.5 mt-4">{[0, 1, 2, 3].map((i) => <div key={i} className="h-4 bg-white/10 rounded animate-pulse" style={{ width: `${85 - i * 10}%` }} />)}</div>
             ) : brief.length ? (
-              <ul className="mt-3 lg:columns-2 lg:gap-12 [&>li]:break-inside-avoid [&>li]:mb-2.5">
+              <ul className="mt-3 space-y-2">
                 {brief.map((line, i) => (
-                  <li key={i} className="font-serif text-[17px] leading-relaxed text-white/90 pl-4 relative">
-                    <span aria-hidden className="absolute left-0 top-[0.7em] w-1.5 h-1.5 rounded-full bg-pgm-gold" />
+                  <li key={i} className="font-serif text-[18px] leading-snug text-white/90 pl-5 relative">
+                    <span aria-hidden className="absolute left-0 top-[0.55em] w-1.5 h-1.5 rounded-full bg-pgm-gold" />
                     {line}
                   </li>
                 ))}
@@ -226,25 +231,29 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
 
       {/* Website */}
       {websiteOn ? (
-        <Section id="website" title="Your website" intro="Who visited your website, where they came from, and which pages brought them in. From Google Analytics.">
-          {overview.error ? <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">{overview.error}</p> : (
+        <Section id="website" title="Your website" intro="Who visited the website, where they came from, what they used, and which pages brought them in. From Google Analytics.">
+          {overview.error ? <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">{overview.error}</p> : loading ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
+              {[2, 1, 2, 1].map((span, i) => (
+                <div key={i} className={`bg-white border border-pgm-line rounded-xl h-80 animate-pulse ${span === 2 ? 'lg:col-span-2' : ''}`} />
+              ))}
+            </div>
+          ) : (
             <>
-              {visitors.data && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                  <MetricCard label="People who visited" help="Different people, however many times each visited." value={nf(visitors.data.totalUsers)} change={0} loading={loading} />
-                  <MetricCard label="First-time visitors" help="People visiting your website for the first time." value={nf(visitors.data.newUsers)} change={0} loading={loading} />
-                  <MetricCard label="Average visit length" help="How long a typical visit lasts." value={minsSecs(visitors.data.avgSessionDuration)} change={0} loading={loading} />
-                </div>
+              {v && (
+                <>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
+                    <VisitsByDayChart className="lg:col-span-2" daily={v.dailySessions ?? []} totals={v} previous={v.previous} compareName={compareName} />
+                    <VisitLengthCard now={v} prev={v.previous} />
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
+                    <ChannelBreakdown className="lg:col-span-2" data={v.channelBreakdown ?? []} label={label} />
+                    <DeviceBreakdown data={v.deviceBreakdown ?? []} />
+                  </div>
+                </>
               )}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                {loading ? <><div className="bg-white border border-pgm-line rounded-xl h-72 animate-pulse" /><div className="bg-white border border-pgm-line rounded-xl h-72 animate-pulse" /></> : (
-                  <>
-                    <BookingsByDayChart data={overview.data?.dailyBookings ?? []} label={label} notes={notes} />
-                    <TrafficSourceChart data={overview.data?.trafficSources ?? []} />
-                  </>
-                )}
-              </div>
-              {!loading && <TopLandingPagesTable data={overview.data?.landingPages ?? []} label={label} />}
+              <BookingsByDayChart data={overview.data?.dailyBookings ?? []} label={label} notes={notes} />
+              <TopLandingPagesTable data={overview.data?.landingPages ?? []} label={label} />
             </>
           )}
         </Section>

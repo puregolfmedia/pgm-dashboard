@@ -304,7 +304,7 @@ export default function EditClientPage() {
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-4">
               <Input
                 label="Logo web address"
-                hint="Right-click the logo on the club’s website → Copy image address. Must start https://"
+                hint="A white or light logo on a transparent background works best — it sits on the dark green header. Right-click the logo on the club’s website → Copy image address. Must start https://"
                 placeholder="https://www.example.co.uk/logo.png"
                 value={form.logoUrl}
                 onChange={set('logoUrl')}
