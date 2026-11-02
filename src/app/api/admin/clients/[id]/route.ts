@@ -42,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const body = await request.json()
   const { ga4PropertyId, ga4ServiceAccountJson, ga4BookingEventName, ga4MembershipEventName,
           metaAdAccountId, metaAccessToken, emailOctopusApiKey,
-          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, bookingGoalLabel, membershipGoalLabel, logoUrl, brandColor, reportingStartDate, newPassword } = body
+          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, bookingGoalLabel, membershipGoalLabel, logoUrl, brandColor, reportingStartDate, ga4TrackingStartDate, ga4BookingStartDate, newPassword } = body
 
   // Handle password reset
   if (newPassword) {
@@ -64,7 +64,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (logoUrl !== undefined || brandColor !== undefined) {
     const logo = typeof logoUrl === 'string' ? logoUrl.trim() : ''
     const colour = typeof brandColor === 'string' ? brandColor.trim() : ''
-    if (logo && !/^https:\/\/[^\s"'<>]+$/.test(logo)) {
+    if (logo && !/^(https:\/\/|\/clients\/)[^\s"'<>]+$/.test(logo)) {
       return NextResponse.json({ data: null, error: 'The logo must be a full https:// web address' }, { status: 400 })
     }
     if (colour && !/^#[0-9a-fA-F]{6}$/.test(colour)) {
@@ -93,6 +93,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (bookingGoalLabel !== undefined) configData.bookingGoalLabel = bookingGoalLabel.trim().slice(0, 60) || null
   if (membershipGoalLabel !== undefined) configData.membershipGoalLabel = membershipGoalLabel.trim().slice(0, 60) || null
   if (searchConsoleSiteUrl !== undefined) configData.searchConsoleSiteUrl = searchConsoleSiteUrl.trim() || null
+  for (const [key, value] of [['ga4TrackingStartDate', ga4TrackingStartDate], ['ga4BookingStartDate', ga4BookingStartDate]] as const) {
+    if (value === undefined) continue
+    const ok = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    if (value && !ok) return NextResponse.json({ data: null, error: 'Enter tracking dates as dates' }, { status: 400 })
+    configData[key] = ok ? new Date(`${value}T00:00:00Z`) : null
+  }
 
   if (Object.keys(configData).length > 0) {
     await prisma.dataSourceConfig.upsert({

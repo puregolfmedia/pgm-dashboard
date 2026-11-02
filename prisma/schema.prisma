@@ -124,6 +124,9 @@ model DataSourceConfig {
   // What the club calls those actions on its dashboard
   bookingGoalLabel         String?
   membershipGoalLabel      String?
+  // Figures are only trusted from these dates (earlier days are left out)
+  ga4TrackingStartDate     DateTime?
+  ga4BookingStartDate      DateTime?
 
   // Meta
   metaAdAccountId          String?

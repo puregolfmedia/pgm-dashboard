@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchGA4Overview, fetchGA4DailyBookings, fetchGA4TrafficSources, fetchGA4LandingPages } from '@/lib/ga4'
 import { fetchMetaOverview } from '@/lib/meta'
+import { trackingDates, canCompare } from '@/lib/tracking'
+import { bookingsFromDate } from '@/lib/ga4'
 import { cacheGet, cacheSet, makeCacheKey } from '@/lib/cache'
 import { pctChange, formatNumber, formatCurrency, formatPercent } from '@/lib/utils'
 import type { ApiResponse } from '@/types/api'
@@ -33,7 +35,7 @@ export async function GET(request: Request) {
   const demo = await demoResponse(requestedClientId, 'overview', days)
   if (demo) return demo
 
-  const cacheKey = makeCacheKey(requestedClientId, 'overview', range.key)
+  const cacheKey = makeCacheKey(requestedClientId, 'overview-v2', range.key)
   const cached = await cacheGet<any>(cacheKey)
   if (cached) {
     return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
@@ -46,22 +48,24 @@ export async function GET(request: Request) {
 
   try {
     const bookingEventName = config.ga4BookingEventName ?? 'generate_lead'
+    const tracking = trackingDates(config)
+    const compare = canCompare(range, tracking)
 
     const [ga4, meta, dailyBookings, trafficSources, landingPages] = await Promise.allSettled([
       config.ga4PropertyId && config.ga4ServiceAccountJson
-        ? fetchGA4Overview(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range)
+        ? fetchGA4Overview(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range, tracking)
         : Promise.resolve(null),
       config.metaAdAccountId && config.metaAccessToken
         ? fetchMetaOverview(config.metaAdAccountId, config.metaAccessToken, range)
         : Promise.resolve(null),
       config.ga4PropertyId && config.ga4ServiceAccountJson
-        ? fetchGA4DailyBookings(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range)
+        ? fetchGA4DailyBookings(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range, tracking)
         : Promise.resolve([]),
       config.ga4PropertyId && config.ga4ServiceAccountJson
         ? fetchGA4TrafficSources(config.ga4PropertyId, config.ga4ServiceAccountJson, range)
         : Promise.resolve([]),
       config.ga4PropertyId && config.ga4ServiceAccountJson
-        ? fetchGA4LandingPages(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range)
+        ? fetchGA4LandingPages(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range, tracking)
         : Promise.resolve([]),
     ])
 
@@ -94,12 +98,12 @@ export async function GET(request: Request) {
       metrics: {
         sessions: {
           value: formatNumber(ga4Data?.current.sessions ?? 0),
-          change: pctChange(ga4Data?.current.sessions ?? 0, ga4Data?.previous.sessions ?? 0),
+          change: compare.visits ? pctChange(ga4Data?.current.sessions ?? 0, ga4Data?.previous.sessions ?? 0) : 0,
           changePeriod: range.compareLabel,
         },
         bookingStarts: {
           value: formatNumber(ga4Data?.current.bookingStarts ?? 0),
-          change: pctChange(ga4Data?.current.bookingStarts ?? 0, ga4Data?.previous.bookingStarts ?? 0),
+          change: compare.bookings ? pctChange(ga4Data?.current.bookingStarts ?? 0, ga4Data?.previous.bookingStarts ?? 0) : 0,
           changePeriod: range.compareLabel,
         },
         costPerBooking: {
@@ -130,6 +134,7 @@ export async function GET(request: Request) {
       landingPages: pages,
       warnings,
       labels: { booking: config.bookingGoalLabel || null },
+      tracking: { websiteFrom: tracking.websiteFrom ?? null, bookingsFrom: bookingsFromDate(tracking) },
     }
 
     // Cache only complete results, so a temporary failure isn't remembered for 5 minutes
