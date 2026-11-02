@@ -257,7 +257,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
 
       {/* Website */}
       {websiteOn ? (
-        <Section id="website" title="Your website" intro="Who visited the website, where they came from, what they used, and which pages brought them in. From Google Analytics.">
+        <Section id="website" tinted title="Your website" intro="Who visited the website, where they came from, what they used, and which pages brought them in. From Google Analytics.">
           {overview.error ? <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">{overview.error}</p> : loading ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
               {[2, 1, 2, 1].map((span, i) => (
@@ -295,7 +295,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
 
       {/* Google search */}
       {searchOn ? (
-        <Section id="google" title="Google search" intro="How your website shows up when people search on Google (not paid ads). Google’s figures run about two days behind.">
+        <Section id="google" tinted title="Google search" intro="How your website shows up when people search on Google (not paid ads). Google’s figures run about two days behind.">
           {seo.error ? <p className="text-sm text-gray-400 bg-white border border-pgm-line rounded-xl p-5">{seo.error}</p> : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
