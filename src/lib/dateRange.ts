@@ -24,19 +24,21 @@ const addYears = (s: string, n: number) => { const d = parse(s); d.setUTCFullYea
 const daysBetween = (a: string, b: string) => Math.round((parse(b).getTime() - parse(a).getTime()) / 86_400_000)
 
 export function buildRange(opts: { days?: number; from?: string | null; to?: string | null; compare?: string | null }): DateRange {
-  const today = fmt(new Date())
+  // Ranges stop at yesterday: today is only part-way through, and its
+  // half-finished figures would make every chart dip at the end.
+  const lastDay = addDays(fmt(new Date()), -1)
   const compare: DateRange['compare'] = opts.compare === 'year' ? 'year' : 'previous'
 
   let start: string, end: string, custom = false
   if (opts.from && opts.to && ISO.test(opts.from) && ISO.test(opts.to) && opts.from <= opts.to) {
-    end = opts.to > today ? today : opts.to
+    end = opts.to > lastDay ? lastDay : opts.to
     start = opts.from > end ? end : opts.from
     if (daysBetween(start, end) > 400) start = addDays(end, -400)
     custom = true
   } else {
     const days = Math.min(Math.max(Math.round(opts.days ?? 30) || 30, 1), 366)
-    end = today
-    start = addDays(today, -(days - 1)) // N calendar days including today
+    end = lastDay
+    start = addDays(lastDay, -(days - 1)) // the N full days up to yesterday
   }
 
   const days = daysBetween(start, end) + 1

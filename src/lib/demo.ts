@@ -28,7 +28,7 @@ function daily(days: number, base: number, seed: number) {
   const r = rng(seed)
   return Array.from({ length: days }, (_, i) => {
     const d = new Date()
-    d.setDate(d.getDate() - (days - 1 - i))
+    d.setDate(d.getDate() - (days - i)) // up to yesterday
     const weekend = d.getDay() === 0 || d.getDay() === 6 ? 1.4 : 1
     const trend = 0.8 + (i / days) * 0.5
     return { date: d.toISOString().slice(0, 10).replace(/-/g, ''), bookings: Math.round(base * weekend * trend * (0.6 + r() * 0.8)) }
@@ -69,7 +69,7 @@ export function demoData(kind: Kind, days: number): unknown {
       const r = rng(23)
       const dailySessions = Array.from({ length: days }, (_, i) => {
         const d = new Date()
-        d.setDate(d.getDate() - (days - 1 - i))
+        d.setDate(d.getDate() - (days - i)) // up to yesterday
         const weekend = d.getDay() === 0 || d.getDay() === 6 ? 1.3 : 1
         const base = 139 * weekend * (0.85 + (i / days) * 0.3)
         return {
