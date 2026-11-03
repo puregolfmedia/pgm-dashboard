@@ -14,7 +14,9 @@ export async function GET(request: Request) {
 
   const [enquiries, previous] = await Promise.all([
     prisma.enquiry.findMany({
-      where: { clientId: access.clientId, receivedAt: between(range.start, range.end) },
+      // Enquiries are complete records, so today's are included (unlike the
+      // analytics, which stop at yesterday) — they may need following up now
+      where: { clientId: access.clientId, receivedAt: between(range.start, range.custom ? range.end : new Date().toISOString().slice(0, 10)) },
       orderBy: { receivedAt: 'desc' },
       take: 1000,
     }),

@@ -60,7 +60,8 @@ export default function FilterBar({ value, onChange }: FilterBarProps) {
     setTo(value.to ?? '')
     if (value.from && value.to) setShowCustom(true)
   }, [value.from, value.to])
-  const today = new Date().toISOString().slice(0, 10)
+  // The last full day; today is still in progress
+  const today = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
   const btn = (active: boolean) => `px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
     active ? 'bg-pgm-green text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-pgm-green hover:text-pgm-green'}`
 

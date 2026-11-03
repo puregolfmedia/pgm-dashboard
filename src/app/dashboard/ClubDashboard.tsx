@@ -87,7 +87,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
     load(`/api/dashboard/club?clientId=${clientId}`).then((c) => {
       setClub(c.data)
       const start = c.data?.reportingStartDate ? String(c.data.reportingStartDate).slice(0, 10) : null
-      const to = new Date().toISOString().slice(0, 10)
+      const to = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10) // last full day
       const from = start ?? new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10)
       setEmailLoading(true)
       load(`/api/dashboard/email?clientId=${clientId}&from=${from}&to=${to}`).then((e) => { setEmail(e); setEmailLoading(false) })
@@ -124,7 +124,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   const v = visitors.data?.dailySessions ? visitors.data : null
   const compareName = cmp.replace(/^vs /, '').replace(/^prior/, 'the previous')
   // Tell the reader when the chosen dates reach back before tracking began
-  const rangeStart = range.from ?? new Date(Date.now() - (range.days - 1) * 86_400_000).toISOString().slice(0, 10)
+  const rangeStart = range.from ?? new Date(Date.now() - range.days * 86_400_000).toISOString().slice(0, 10)
   const dayMonth = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
   const tracking = overview.data?.tracking as { websiteFrom: string | null; bookingsFrom: string | null } | undefined
   const briefNotes: string[] = []
