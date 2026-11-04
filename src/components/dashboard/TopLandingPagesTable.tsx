@@ -7,7 +7,7 @@ import { sectionHelp } from '@/lib/metricHelp'
 const SHOWN = 10
 const nf = (n: number) => new Intl.NumberFormat('en-GB').format(n)
 
-export default function TopLandingPagesTable({ data, label = 'Booking starts' }: { data: LandingPage[]; label?: string }) {
+export default function TopLandingPagesTable({ data, label = 'Clicks' }: { data: LandingPage[]; label?: string }) {
   const [expanded, setExpanded] = useState(false)
   const rows = expanded ? data : data.slice(0, SHOWN)
   const hidden = data.length - SHOWN
@@ -17,7 +17,7 @@ export default function TopLandingPagesTable({ data, label = 'Booking starts' }:
       <div className="px-5 sm:px-6 pt-5 pb-4">
         <h3 className="text-[15px] font-semibold text-pgm-ink">Top landing pages</h3>
         <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-          {label === 'Booking starts' ? sectionHelp['Top landing pages'] : `The first page people arrived on, how many “${label}” followed, and the conversion % (${label} ÷ visits).`}
+          {label === 'Clicks' ? sectionHelp['Top landing pages'] : `The first page people arrived on, how many “${label}” followed, and the conversion % (${label} ÷ visits).`}
         </p>
       </div>
       <div className="overflow-x-auto">

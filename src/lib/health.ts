@@ -77,7 +77,7 @@ export async function getClientHealth(clientId: string, { fresh = false } = {}):
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId }, include: { dataConfig: true } })
   const cfg = client.dataConfig
-  const keyLabel = cfg?.bookingGoalLabel || 'Booking starts'
+  const keyLabel = cfg?.bookingGoalLabel || 'Clicks'
   const issues: Issue[] = []
 
   const since30 = new Date(); since30.setDate(since30.getDate() - 30)

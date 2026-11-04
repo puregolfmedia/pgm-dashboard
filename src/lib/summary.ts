@@ -31,14 +31,14 @@ export interface BriefItem {
 export function buildSummary(d: SummaryInput, _compareLabel?: string): BriefItem[] {
   const items: BriefItem[] = []
   const m = d.overview?.metrics
-  const label = d.overview?.labels?.booking ?? 'booking starts'
-  const named = label === 'booking starts' || label === 'Booking starts' ? 'booking starts' : label
+  const label = d.overview?.labels?.booking ?? 'clicks'
+  const named = label === 'clicks' || label === 'Clicks' ? 'clicks to book or enquire' : label
 
   if (m && num(m.sessions.value) > 0) {
     items.push({ icon: 'website', text: `${m.sessions.value} website visits`, change: m.sessions.change ?? 0, target: 'website' })
   }
   if (m && num(m.bookingStarts.value) > 0) {
-    items.push({ icon: 'click', text: `${m.bookingStarts.value} ${named} online`, change: m.bookingStarts.change ?? 0, target: 'website' })
+    items.push({ icon: 'click', text: named === 'clicks to book or enquire' ? `${m.bookingStarts.value} ${named}` : `${m.bookingStarts.value} ${named} online`, change: m.bookingStarts.change ?? 0, target: 'website' })
   }
   const e = d.enquiries?.summary
   if (e?.total > 0) {
