@@ -405,8 +405,10 @@ export async function fetchGA4Visitors(
   const totals = (name: string) => {
     const row = summary.rows?.find((x: any) => x.dimensionValues?.[0]?.value === name)
     const v = (i: number) => parseFloat(row?.metricValues?.[i]?.value ?? '0')
+    // GA4 counts first visits separately from its estimate of unique people,
+    // so "new users" can come out a little higher; it can never really exceed them
     return {
-      totalUsers: v(0), newUsers: v(1), sessions: v(2), bounceRate: v(3),
+      totalUsers: v(0), newUsers: Math.min(v(1), v(0)), sessions: v(2), bounceRate: v(3),
       avgSessionDuration: v(4), pagesPerSession: v(5), engagementRate: v(6),
     }
   }

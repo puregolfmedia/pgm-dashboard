@@ -16,10 +16,12 @@ interface Props {
   /** e.g. "the previous 30 days" */
   compareName: string
   className?: string
+  /** Date tracking began (YYYY-MM-DD), to explain why most visitors count as first-time */
+  trackingFrom?: string | null
 }
 
 /** Website visits each day, with the comparison period as a faint dashed line behind. */
-export default function VisitsByDayChart({ daily, totals, previous, compareName, className }: Props) {
+export default function VisitsByDayChart({ daily, totals, previous, compareName, className, trackingFrom }: Props) {
   const data = daily.map((d) => ({ ...d, label: dayLabel(d.date) }))
   const hasPrev = daily.some((d) => d.previous > 0)
   const stats = [
@@ -40,6 +42,14 @@ export default function VisitsByDayChart({ daily, totals, previous, compareName,
           </div>
         ))}
       </dl>
+      {trackingFrom && totals.totalUsers > 0 && totals.newUsers / totals.totalUsers > 0.85 && (
+        <p className="text-xs text-gray-500 bg-pgm-page rounded-lg px-3 py-2 -mt-1 mb-5 leading-relaxed">
+          Almost everyone counts as a first-time visitor for now. Google Analytics only started recording on{' '}
+          {new Date(`${trackingFrom}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}, so it hasn’t
+          seen most people before. People who clear their cookies or use a different device are also counted as new. Returning visitors will
+          show up more as the months go on.
+        </p>
+      )}
       {data.length === 0 ? (
         <div className="h-[220px] flex items-center justify-center text-sm text-gray-400">No visits recorded for these dates yet</div>
       ) : (
