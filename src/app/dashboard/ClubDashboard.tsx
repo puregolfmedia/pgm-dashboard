@@ -294,7 +294,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
               {v && (
                 <>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-                    <VisitsByDayChart className="lg:col-span-2" daily={v.dailySessions ?? []} totals={v} previous={v.previous} compareName={compareName} />
+                    <VisitsByDayChart className="lg:col-span-2" daily={v.dailySessions ?? []} totals={v} previous={v.previous} compareName={compareName} trackingFrom={tracking?.websiteFrom} />
                     <VisitLengthCard now={v} prev={v.previous} />
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
