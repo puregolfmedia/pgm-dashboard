@@ -109,6 +109,8 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   }
 
   const m = overview.data?.metrics
+  // Enquiries, bookings and goals are switched off for now; set to true to bring them back
+  const SHOW_ENQUIRIES = false
   const label: string = overview.data?.labels?.booking ?? 'Booking starts'
   const cmp = compareText(range)
   const emailSince: string | null = club?.reportingStartDate ?? null
@@ -118,7 +120,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   const searchOn = !notConnected(seo.error)
   const emailOn = !notConnected(email.error)
   const websiteOn = !notConnected(overview.error)
-  const brief = loading ? [] : buildSummary({ overview: overview.data, enquiries: enquiries.data, email: email.data, emailSince, paid: paid.data, seo: seo.data }, cmp)
+  const brief = loading ? [] : buildSummary({ overview: overview.data, enquiries: SHOW_ENQUIRIES ? enquiries.data : undefined, email: email.data, emailSince, paid: paid.data, seo: seo.data }, cmp)
   const warnings: string[] = overview.data?.warnings ?? []
   // Older cached visitor data lacks the daily and comparison figures
   const v = visitors.data?.dailySessions ? visitors.data : null
@@ -141,9 +143,15 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
       { label, value: m?.bookingStarts.value ?? '—', change: m?.bookingStarts.change ?? 0, sub: cmp,
         help: label === 'Booking starts' ? 'Clicks to book or enquire on the website.' : 'Recorded on the website.', loading },
     ] : []),
-    { label: 'Enquiries received', value: s ? String(s.total) : '—', change: s && prev ? pctChange(s.total, prev.total) : 0, sub: cmp, help: 'From website forms, plus any added by hand.', loading: enquiriesLoading },
-    { label: 'Booked revenue', value: s ? gbp(s.bookedValue) : '—', change: s && prev ? pctChange(s.bookedValue, prev.bookedValue) : 0,
-      sub: s ? `${s.booked} booking${s.booked === 1 ? '' : 's'}` : undefined, help: 'Value of enquiries marked as booked.', loading: enquiriesLoading },
+    ...(SHOW_ENQUIRIES ? [
+      { label: 'Enquiries received', value: s ? String(s.total) : '—', change: s && prev ? pctChange(s.total, prev.total) : 0, sub: cmp, help: 'From website forms, plus any added by hand.', loading: enquiriesLoading },
+      { label: 'Booked revenue', value: s ? gbp(s.bookedValue) : '—', change: s && prev ? pctChange(s.bookedValue, prev.bookedValue) : 0,
+        sub: s ? `${s.booked} booking${s.booked === 1 ? '' : 's'}` : undefined, help: 'Value of enquiries marked as booked.', loading: enquiriesLoading },
+    ] : []),
+    ...(emailOn && email.data?.campaigns?.length ? [
+      { label: 'Email open rate', value: `${email.data.avgOpenRate}%`, change: 0, help: emailSince ? `Average across emails since ${longDate(emailSince.slice(0, 10))}.` : 'Average across all emails.', loading },
+      { label: 'Email click rate', value: `${email.data.avgClickRate}%`, change: 0, help: emailSince ? `Average across emails since ${longDate(emailSince.slice(0, 10))}.` : 'Average across all emails.', loading },
+    ] : []),
     ...(adsOn ? [
       { label: 'Ad spend', value: paid.data.metrics.spend.value, change: paid.data.metrics.spend.change, sub: cmp, help: 'Facebook & Instagram ads.', loading },
       ...(paid.data.metrics.roas.value !== '—' ? [{ label: 'Return on ad spend', value: paid.data.metrics.roas.value, change: paid.data.metrics.roas.change, sub: cmp, help: 'Revenue per £1 spent on ads.', loading }] : []),
@@ -151,7 +159,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   ]
 
   const sections = [
-    { id: 'enquiries', title: 'Enquiries', icon: 'enquiries' },
+    SHOW_ENQUIRIES && { id: 'enquiries', title: 'Enquiries', icon: 'enquiries' },
     websiteOn && { id: 'website', title: 'Website', icon: 'website' },
     emailOn && { id: 'email', title: 'Email', icon: 'email' },
     searchOn && { id: 'google', title: 'Google search', icon: 'search' },
@@ -217,22 +225,18 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
           {loading ? (
             <div className="space-y-3.5 mt-5">{[0, 1, 2, 3].map((i) => <div key={i} className="h-4 bg-pgm-page rounded animate-pulse" style={{ width: `${55 - i * 5}%` }} />)}</div>
           ) : brief.length ? (
-            <ul className="relative mt-4 space-y-1">
+            <ul className="relative mt-4 space-y-2.5">
               {brief.map((item, i) => (
-                <li key={i}>
-                  <button type="button" onClick={() => goTo(item.target)} title="See the detail"
-                    className="group -mx-2 px-2 py-1.5 rounded-lg flex items-center gap-3 text-left hover:bg-pgm-page transition-colors">
-                    <Icon name={item.icon} className="w-[18px] h-[18px] text-pgm-green shrink-0" />
-                    <span className="font-serif text-[18px] leading-snug text-pgm-ink group-hover:text-pgm-green group-hover:underline decoration-pgm-green/30 underline-offset-4">
-                      {item.text}
-                    </span>
+                <li key={i} className="flex items-baseline gap-3 text-[17px] leading-snug text-pgm-ink">
+                  <span aria-hidden className="w-2 h-2 rounded-full bg-pgm-green shrink-0 translate-y-[-2px]" />
+                  <span>
+                    {item.text}
                     {item.change !== 0 && (
-                      <span className={`shrink-0 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${item.change > 0 ? 'bg-[#E3F1E7] text-[#1E7A45]' : 'bg-[#F8E6E1] text-[#B4432F]'}`}
-                        title={`${item.change > 0 ? 'Up' : 'Down'} ${Math.abs(item.change)}% ${cmp}`}>
-                        <Icon name={item.change > 0 ? 'up' : 'down'} className="w-3.5 h-3.5" strokeWidth={2.4} />{Math.abs(item.change)}%
+                      <span className={`ml-2 text-[15px] font-semibold whitespace-nowrap ${item.change > 0 ? 'text-[#1E7A45]' : 'text-[#B4432F]'}`}>
+                        {item.change > 0 ? '▲ up' : '▼ down'} {Math.abs(item.change)}%
                       </span>
                     )}
-                  </button>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -250,7 +254,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
         </div>
 
         {/* The scorecard: headline numbers in one ruled strip */}
-        <dl className={`bg-white grid grid-cols-2 ${scorecard.length > 4 ? 'lg:grid-cols-6' : 'lg:grid-cols-4'} border-t-[3px] border-pgm-gold`}>
+        <dl className={`bg-white grid grid-cols-2 ${['', 'lg:grid-cols-1', 'lg:grid-cols-2', 'lg:grid-cols-3', 'lg:grid-cols-4', 'lg:grid-cols-5', 'lg:grid-cols-6'][Math.min(scorecard.length, 6)]} border-t-[3px] border-pgm-gold`}>
           {scorecard.map((c, i) => (
             <div key={c.label} className={`px-5 sm:px-6 py-5 border-pgm-line ${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t lg:border-t-0' : ''} ${i > 0 ? 'lg:border-l' : ''}`}>
               <dt className="text-[13px] font-medium text-pgm-ink/70">{c.label}</dt>
@@ -266,15 +270,15 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
 
       {warnings.map((w) => <p key={w} className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">{w}</p>)}
 
-      <GoalProgressList goals={goals} />
+      {SHOW_ENQUIRIES && <GoalProgressList goals={goals} />}
 
       {/* Enquiries */}
-      <Section icon="enquiries" id="enquiries" title="Enquiries and bookings"
+      {SHOW_ENQUIRIES && <Section icon="enquiries" id="enquiries" title="Enquiries and bookings"
         intro="Every enquiry from your website forms, plus ones taken by phone or in person. Update each one’s status as it progresses, and when it’s booked enter its value — that’s how booked revenue is worked out.">
         {enquiries.error ? <p className="text-sm text-gray-400">{enquiries.error}</p> : (
           <EnquiriesManager clientId={clientId} isAdmin={isAdmin} data={enquiries.data} loading={enquiriesLoading} onChanged={loadEnquiries} />
         )}
-      </Section>
+      </Section>}
 
       {/* Website */}
       {websiteOn ? (
@@ -371,7 +375,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
       ) : isAdmin && <p className="text-xs text-gray-400">Facebook & Instagram ads aren’t connected for this club yet.</p>}
 
       <p className="text-xs text-gray-400 border-t border-gray-200 pt-4">
-        Figures come from Google Analytics, Google Search Console, Mailchimp, Meta and your enquiries list, and are refreshed every 10 minutes.
+        Figures come from Google Analytics, Google Search Console, Mailchimp and Meta, and are refreshed every 10 minutes.
         Prepared by Pure Golf Media.
       </p>
     </div>
