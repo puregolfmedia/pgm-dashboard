@@ -360,12 +360,13 @@ export async function fetchGA4Visitors(
   ]
 
   const bookingWindow = clip(r.start, r.end, bookingsFromDate(tracking))
-  const [[summary], [devices], [channels], [channelBookings], [dailyNow], [dailyPrev]] = await Promise.all([
+  const [[summary], [devices], [channels], [channelBookings], [dailyNow], [dailyPrev], [newVsReturning]] = await Promise.all([
     client.runReport({
       property,
       dateRanges: both,
       metrics: [
-        { name: 'totalUsers' }, { name: 'newUsers' }, { name: 'sessions' }, { name: 'bounceRate' },
+        // activeUsers is what GA4's own reports call "Users", so the figures match what the club sees there
+        { name: 'activeUsers' }, { name: 'newUsers' }, { name: 'sessions' }, { name: 'bounceRate' },
         { name: 'averageSessionDuration' }, { name: 'screenPageViewsPerSession' }, { name: 'engagementRate' },
       ],
     }),
@@ -380,7 +381,7 @@ export async function fetchGA4Visitors(
       property,
       dateRanges: current,
       dimensions: [{ name: 'sessionDefaultChannelGroup' }],
-      metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
+      metrics: [{ name: 'sessions' }, { name: 'activeUsers' }],
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
       limit: 10,
     }),
@@ -399,16 +400,26 @@ export async function fetchGA4Visitors(
       dimensions: [{ name: 'date' }],
       metrics: [{ name: 'sessions' }],
     }),
+    // People split into first-time and returning, from the same count as "People"
+    client.runReport({
+      property,
+      dateRanges: both,
+      dimensions: [{ name: 'newVsReturning' }],
+      metrics: [{ name: 'activeUsers' }],
+    }),
   ])
 
   // With two date ranges and no other dimension, GA4 labels each row with the range name
   const totals = (name: string) => {
     const row = summary.rows?.find((x: any) => x.dimensionValues?.[0]?.value === name)
     const v = (i: number) => parseFloat(row?.metricValues?.[i]?.value ?? '0')
-    // GA4 counts first visits separately from its estimate of unique people,
-    // so "new users" can come out a little higher; it can never really exceed them
+    // First-time people come from the same people count, split by new vs returning,
+    // so they can never exceed it (GA4's separate "new users" event count can)
+    const split = newVsReturning.rows?.find((x: any) =>
+      x.dimensionValues?.[0]?.value === 'new' && x.dimensionValues?.[1]?.value === name)
+    const firstTime = split ? parseFloat(split.metricValues?.[0]?.value ?? '0') : v(1)
     return {
-      totalUsers: v(0), newUsers: Math.min(v(1), v(0)), sessions: v(2), bounceRate: v(3),
+      totalUsers: v(0), newUsers: Math.min(firstTime, v(0)), sessions: v(2), bounceRate: v(3),
       avgSessionDuration: v(4), pagesPerSession: v(5), engagementRate: v(6),
     }
   }

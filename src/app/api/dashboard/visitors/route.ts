@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   const demo = await demoResponse(requestedClientId, 'visitors', days)
   if (demo) return demo
 
-  const cacheKey = makeCacheKey(requestedClientId, 'visitors-v4', range.key)
+  const cacheKey = makeCacheKey(requestedClientId, 'visitors-v5', range.key)
   const cached = await cacheGet<any>(cacheKey)
   if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
 
