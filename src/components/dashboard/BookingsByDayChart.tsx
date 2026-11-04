@@ -17,7 +17,7 @@ function formatDate(dateStr: string) {
 
 const isoToYmd = (iso: string) => iso.slice(0, 10).replace(/-/g, '')
 
-export default function BookingsByDayChart({ data, label = 'Booking starts', notes = [] }: {
+export default function BookingsByDayChart({ data, label = 'Clicks', notes = [] }: {
   data: DailyBooking[]
   /** What the club calls this action, e.g. "Christmas enquiries" */
   label?: string
@@ -34,8 +34,8 @@ export default function BookingsByDayChart({ data, label = 'Booking starts', not
     <div className="bg-white border border-pgm-line rounded-xl p-5 sm:p-6">
       <h3 className="text-[15px] font-semibold text-pgm-ink">{title}</h3>
       <p className="text-xs text-gray-500 mt-1 mb-5 leading-relaxed">
-        {label === 'Booking starts'
-          ? sectionHelp['Booking starts by day']
+        {label === 'Clicks'
+          ? sectionHelp['Clicks by day']
           : `${label} each day, so you can spot busy days and the effect of campaigns.`}
         {visibleNotes.length > 0 && ' Dashed lines mark work we did.'}
       </p>

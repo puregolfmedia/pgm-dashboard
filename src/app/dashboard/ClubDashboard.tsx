@@ -111,7 +111,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   const m = overview.data?.metrics
   // Enquiries, bookings and goals are switched off for now; set to true to bring them back
   const SHOW_ENQUIRIES = false
-  const label: string = overview.data?.labels?.booking ?? 'Booking starts'
+  const label: string = overview.data?.labels?.booking ?? 'Clicks'
   const cmp = compareText(range)
   const emailSince: string | null = club?.reportingStartDate ?? null
   const s = enquiries.data?.summary
@@ -141,7 +141,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
     ...(websiteOn ? [
       { label: 'Website visits', value: m?.sessions.value ?? '—', change: m?.sessions.change ?? 0, sub: cmp, help: 'Visits to the club’s website.', loading },
       { label, value: m?.bookingStarts.value ?? '—', change: m?.bookingStarts.change ?? 0, sub: cmp,
-        help: label === 'Booking starts' ? 'Clicks to book or enquire on the website.' : 'Recorded on the website.', loading },
+        help: label === 'Clicks' ? 'Clicks to book or enquire on the website.' : 'Recorded on the website.', loading },
     ] : []),
     ...(SHOW_ENQUIRIES ? [
       { label: 'Enquiries received', value: s ? String(s.total) : '—', change: s && prev ? pctChange(s.total, prev.total) : 0, sub: cmp, help: 'From website forms, plus any added by hand.', loading: enquiriesLoading },
@@ -343,7 +343,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
         <Section icon="ads" id="ads" title="Facebook & Instagram ads" intro="What was spent on ads, how often they were seen and clicked, and what they brought back.">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <MetricCard label="Times shown" help="How many times your ads appeared on screen." value={paid.data.metrics.impressions.value} change={paid.data.metrics.impressions.change} changePeriod={cmp} loading={loading} />
-            <MetricCard label="Clicks" help="How many times people clicked your ads." value={paid.data.metrics.clicks.value} change={paid.data.metrics.clicks.change} changePeriod={cmp} loading={loading} />
+            <MetricCard label="Ad clicks" help="How many times people clicked your ads." value={paid.data.metrics.clicks.value} change={paid.data.metrics.clicks.change} changePeriod={cmp} loading={loading} />
             <MetricCard label="Click rate" help="The % of people who saw an ad and clicked it." value={paid.data.metrics.ctr.value} change={paid.data.metrics.ctr.change} changePeriod={cmp} loading={loading} />
             <MetricCard label="Cost per click" help="Ad spend divided by clicks." value={paid.data.metrics.cpc?.value ?? '—'} change={0} loading={loading} />
           </div>

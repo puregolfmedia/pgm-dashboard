@@ -166,15 +166,15 @@ export default function EditClientPage() {
 
           <Input
             label="Booking event name"
-            hint="The GA4 event that counts as a booking start (default: generate_lead)"
+            hint="The GA4 event counted as a click to book or enquire (default: generate_lead)"
             placeholder="generate_lead"
             value={form.ga4BookingEventName}
             onChange={set('ga4BookingEventName')}
           />
           <Input
             label="What the club calls it"
-            hint="Shown on the dashboard instead of “Booking starts”, e.g. “Christmas enquiries”. Leave empty to keep the default."
-            placeholder="Booking starts"
+            hint="Shown on the dashboard instead of “Clicks”, e.g. “Christmas enquiries”. Leave empty to keep the default."
+            placeholder="Clicks"
             value={form.bookingGoalLabel}
             onChange={set('bookingGoalLabel')}
           />

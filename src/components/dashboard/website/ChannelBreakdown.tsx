@@ -10,7 +10,7 @@ export default function ChannelBreakdown({ data, label, className }: {
   /** What the club's website action is called, e.g. "Christmas enquiries" */
   label: string
 }) {
-  const phrase = label === 'Booking starts' ? 'booking starts' : label
+  const phrase = label === 'Clicks' ? 'clicks' : label
   const total = data.reduce((s, d) => s + d.sessions, 0)
   const max = Math.max(1, ...data.map((d) => d.sessions))
   const best = data.filter((d) => d.sessions >= 30 && d.enquiries > 0)

@@ -4,8 +4,8 @@
 export const metricHelp: Record<string, string> = {
   // Overview
   'Sessions': 'Visits to your website. One person visiting twice counts as two.',
-  'Booking starts': 'Times a visitor clicked to book or enquire — the key action tracked for your club.',
-  'Cost / booking start': 'Ad spend divided by booking starts: what each one cost in advertising.',
+  'Clicks': 'Times a visitor clicked to book or enquire — the key action tracked for your club.',
+  'Cost / click': 'Ad spend divided by clicks to book or enquire: what each one cost in advertising.',
   'CTR': 'Click-through rate: the % of people who saw an ad and clicked it.',
   'Ad spend': 'Total spent on Meta (Facebook & Instagram) ads in this period.',
   'ROAS': 'Return on ad spend: revenue tracked from ads for every £1 spent (e.g. 3x = £3 back per £1).',
@@ -32,7 +32,7 @@ export const metricHelp: Record<string, string> = {
 
   // Paid social
   'Impressions': 'How many times your ads or listings were shown.',
-  'Clicks': 'How many times people clicked your ads.',
+  'Ad clicks': 'How many times people clicked your ads.',
   'CPM': 'Cost per 1,000 impressions: the price of showing your ads 1,000 times.',
 
   // Google Search
@@ -45,9 +45,9 @@ export const metricHelp: Record<string, string> = {
 export const searchImpressionsHelp = 'Times your website appeared in someone’s Google search results.'
 
 export const sectionHelp: Record<string, string> = {
-  'Booking starts by day': 'Booking starts each day, so you can spot busy days and the effect of campaigns.',
+  'Clicks by day': 'Clicks to book or enquire each day, so you can spot busy days and the effect of campaigns.',
   'Traffic source': 'Where your website visits came from — e.g. Google, social media, typing your address directly.',
-  'Top landing pages': 'The first page people arrived on, how many went on to start a booking, and the conversion % (booking starts ÷ sessions).',
+  'Top landing pages': 'The first page people arrived on, how many clicked to book or enquire, and the conversion % (clicks ÷ visits).',
   'Device breakdown': 'Whether visitors used a phone, computer or tablet.',
   'Channel breakdown': 'Where your visitors came from, by number of people.',
   'Campaigns': 'Each email sent in this period and how it performed.',
