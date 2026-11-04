@@ -5,6 +5,7 @@ import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import Link from 'next/link'
+import PasswordInput from '@/components/ui/PasswordInput'
 
 function LoginForm() {
   const router = useRouter()
@@ -72,9 +73,8 @@ function LoginForm() {
             <label htmlFor="password" className="block text-sm font-medium text-pgm-ink mb-1.5">
               Password
             </label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
               required
               value={password}

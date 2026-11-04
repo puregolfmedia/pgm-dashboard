@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react'
 import { signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
+import PasswordInput from '@/components/ui/PasswordInput'
 
 export default function ChangePasswordPage() {
   const { data: session } = useSession()
@@ -60,9 +61,8 @@ export default function ChangePasswordPage() {
           {!forced && (
             <div>
               <label htmlFor="current-password" className="block text-sm font-medium text-pgm-ink mb-1.5">Current password</label>
-              <input
+              <PasswordInput
                 id="current-password"
-                type="password"
                 required
                 autoComplete="current-password"
                 value={currentPassword}
@@ -74,10 +74,9 @@ export default function ChangePasswordPage() {
 
           <div>
             <label htmlFor="new-password" className="block text-sm font-medium text-pgm-ink mb-1.5">New password</label>
-            <input
+            <PasswordInput
               id="new-password"
               autoComplete="new-password"
-              type="password"
               required
               minLength={8}
               value={newPassword}
@@ -89,10 +88,9 @@ export default function ChangePasswordPage() {
 
           <div>
             <label htmlFor="confirm-password" className="block text-sm font-medium text-pgm-ink mb-1.5">Confirm password</label>
-            <input
+            <PasswordInput
               id="confirm-password"
               autoComplete="new-password"
-              type="password"
               required
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
