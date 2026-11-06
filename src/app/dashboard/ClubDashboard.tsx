@@ -174,18 +174,19 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   }
 
   return (
-    <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-12 max-w-6xl mx-auto">
+    <div className="px-3 sm:px-8 py-4 sm:py-8 space-y-8 sm:space-y-12 max-w-6xl mx-auto">
       {/* Controls */}
-      <div className="space-y-3 -mb-6 print:hidden">
-        <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="space-y-3 -mb-4 sm:-mb-6 print:hidden">
+        <div className="flex items-center justify-center sm:justify-between flex-wrap gap-2 sm:gap-3">
           <FilterBar value={range} onChange={setRange} />
           <div className="flex items-center gap-3">
-            {lastUpdated && <p className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p>}
-            <Button size="sm" variant="secondary" onClick={() => window.print()}>Print or save as PDF</Button>
+            {lastUpdated && <p className="hidden sm:block text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p>}
+            {/* Printing is a desktop job, so the button is kept off phones */}
+            <span className="hidden sm:inline-flex"><Button size="sm" variant="secondary" onClick={() => window.print()}>Print or save as PDF</Button></span>
           </div>
         </div>
-        <nav aria-label="Jump to section" className="flex gap-1.5 flex-wrap items-center text-xs">
-          <span className="text-gray-400 mr-1">Jump to</span>
+        <nav aria-label="Jump to section" className="flex gap-1.5 flex-wrap items-center justify-center sm:justify-start text-xs">
+          <span className="hidden sm:inline text-gray-400 mr-1">Jump to</span>
           {sections.map((sec) => (
             <a key={sec.id} href={`#${sec.id}`} onClick={(e) => { e.preventDefault(); goTo(sec.id) }}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-pgm-line text-pgm-green hover:border-pgm-green/50 hover:bg-pgm-cream transition-colors">
@@ -196,19 +197,19 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
       </div>
 
       {/* Header band: the club, the period in plain English, and the headline numbers */}
-      <header className="rounded-2xl overflow-hidden border border-pgm-green shadow-[0_1px_0_rgba(8,71,36,0.08)]"
+      <header className="rounded-xl sm:rounded-2xl overflow-hidden border border-pgm-green shadow-[0_1px_0_rgba(8,71,36,0.08)]"
         style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
-        <div className="bg-pgm-green text-white px-6 sm:px-9 py-8">
-          <div className="flex items-center gap-4 sm:gap-5">
+        <div className="bg-pgm-green text-white px-5 sm:px-9 py-6 sm:py-8">
+          <div className="flex items-center gap-3 sm:gap-5">
             {club?.logoUrl && (
-              <span className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center shrink-0">
+              <span className="w-11 h-11 sm:w-16 sm:h-16 flex items-center justify-center shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={club.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
               </span>
             )}
-            <h1 className="font-serif text-[34px] sm:text-[40px] leading-[1.05] font-semibold tracking-tight">{club?.name ?? 'Your club'}</h1>
+            <h1 className="font-serif text-[28px] sm:text-[40px] leading-[1.05] font-semibold tracking-tight">{club?.name ?? 'Your club'}</h1>
           </div>
-          <p className="text-white/75 text-[15px] mt-4">
+          <p className="text-white/75 text-[14px] sm:text-[15px] mt-3 sm:mt-4">
             Marketing results for {range.from && range.to ? `${longDate(range.from)} to ${longDate(range.to)}` : `the last ${range.days} days`},
             compared with {compareName}.
             <span className="text-white/50"> Prepared by Pure Golf Media.</span>
@@ -216,7 +217,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
         </div>
 
         {/* In brief: four one-line bullet points; each opens its section */}
-        <div className="relative bg-white px-6 sm:px-9 py-7 overflow-hidden">
+        <div className="relative bg-white px-5 sm:px-9 py-5 sm:py-7 overflow-hidden">
           <span aria-hidden className="absolute -right-28 -top-28 w-80 h-80 rounded-full pointer-events-none"
             style={{ background: 'radial-gradient(circle, rgba(184,145,58,0.10) 0%, rgba(184,145,58,0) 70%)' }} />
           <h2 className="relative flex items-center gap-2 font-serif text-[22px] text-pgm-green font-semibold">
@@ -225,9 +226,9 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
           {loading ? (
             <div className="space-y-3.5 mt-5">{[0, 1, 2, 3].map((i) => <div key={i} className="h-4 bg-pgm-page rounded animate-pulse" style={{ width: `${55 - i * 5}%` }} />)}</div>
           ) : brief.length ? (
-            <ul className="relative mt-4 space-y-2.5">
+            <ul className="relative mt-3 sm:mt-4 space-y-2 sm:space-y-2.5">
               {brief.map((item, i) => (
-                <li key={i} className="flex items-baseline gap-3 text-[17px] leading-snug text-pgm-ink">
+                <li key={i} className="flex items-baseline gap-3 text-[16px] sm:text-[17px] leading-snug text-pgm-ink">
                   <span aria-hidden className="w-2 h-2 rounded-full bg-pgm-green shrink-0 translate-y-[-2px]" />
                   <span>
                     {item.text}
@@ -256,9 +257,9 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
         {/* The scorecard: headline numbers in one ruled strip */}
         <dl className={`bg-white grid grid-cols-2 ${['', 'lg:grid-cols-1', 'lg:grid-cols-2', 'lg:grid-cols-3', 'lg:grid-cols-4', 'lg:grid-cols-5', 'lg:grid-cols-6'][Math.min(scorecard.length, 6)]} border-t-[3px] border-pgm-gold`}>
           {scorecard.map((c, i) => (
-            <div key={c.label} className={`px-5 sm:px-6 py-5 border-pgm-line ${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t lg:border-t-0' : ''} ${i > 0 ? 'lg:border-l' : ''}`}>
+            <div key={c.label} className={`px-4 sm:px-6 py-4 sm:py-5 border-pgm-line ${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t lg:border-t-0' : ''} ${i > 0 ? 'lg:border-l' : ''}`}>
               <dt className="text-[13px] font-medium text-pgm-ink/70">{c.label}</dt>
-              <dd className="text-[30px] leading-none font-semibold text-pgm-ink tabular-nums tracking-tight mt-2.5">
+              <dd className="text-[26px] sm:text-[30px] leading-none font-semibold text-pgm-ink tabular-nums tracking-tight mt-2 sm:mt-2.5">
                 {c.loading ? <span className="inline-block h-7 w-20 bg-pgm-cream rounded animate-pulse align-middle" /> : c.value}
               </dd>
               {!c.loading && <dd><Change change={c.change} period={c.sub === cmp ? undefined : c.sub} /></dd>}
