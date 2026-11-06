@@ -42,15 +42,21 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const body = await request.json()
   const { ga4PropertyId, ga4ServiceAccountJson, ga4BookingEventName, ga4MembershipEventName,
           metaAdAccountId, metaAccessToken, emailOctopusApiKey,
-          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, bookingGoalLabel, membershipGoalLabel, logoUrl, brandColor, reportingStartDate, ga4TrackingStartDate, ga4BookingStartDate, newPassword } = body
+          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, bookingGoalLabel, membershipGoalLabel, logoUrl, brandColor, reportingStartDate, ga4TrackingStartDate, ga4BookingStartDate, newPassword, passwordResetRequired } = body
 
   // Handle password reset
+  let passwordUpdated: number | undefined
   if (newPassword) {
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return NextResponse.json({ data: null, error: 'Use at least 8 characters.' }, { status: 400 })
+    }
     const passwordHash = await bcrypt.hash(newPassword, 12)
-    await prisma.user.updateMany({
+    const result = await prisma.user.updateMany({
       where: { clientId: params.id, role: 'CLIENT' },
-      data: { passwordHash, passwordResetRequired: true },
+      // Asking them to change it is optional: Jamie may set the password the club keeps
+      data: { passwordHash, passwordResetRequired: passwordResetRequired !== false },
     })
+    passwordUpdated = result.count
   }
 
   // When our work started (email results are shown from this date)
@@ -111,5 +117,5 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   // Invalidate cache for this client
   await cacheInvalidate(params.id)
 
-  return NextResponse.json({ data: { ok: true }, error: null })
+  return NextResponse.json({ data: { ok: true, passwordUpdated }, error: null })
 }

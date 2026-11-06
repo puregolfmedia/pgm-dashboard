@@ -40,6 +40,8 @@ export default function EditClientPage() {
   })
 
   const [newPassword, setNewPassword] = useState('')
+  const [mustChange, setMustChange] = useState(false)
+  const [passwordMsg, setPasswordMsg] = useState('')
 
   useEffect(() => {
     fetch(`/api/admin/clients/${id}`)
@@ -97,19 +99,23 @@ export default function EditClientPage() {
   async function handlePasswordReset(e: FormEvent) {
     e.preventDefault()
     if (!newPassword) return
+    if (newPassword.length < 8) { setPasswordMsg('Use at least 8 characters.'); return }
     setResetting(true)
     setError('')
+    setPasswordMsg('')
     const res = await fetch(`/api/admin/clients/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ newPassword }),
+      body: JSON.stringify({ newPassword, passwordResetRequired: mustChange }),
     })
     const data = await res.json()
     setResetting(false)
-    if (data.error) { setError(data.error); return }
+    if (data.error) { setPasswordMsg(data.error); return }
+    if (data.data?.passwordUpdated === 0) { setPasswordMsg('This club has no login yet, so nothing was changed.'); return }
     setNewPassword('')
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    setPasswordMsg(mustChange
+      ? '✓ Password set. They’ll be asked to choose their own when they next sign in.'
+      : '✓ Password set. They can sign in with it straight away.')
   }
 
   if (loading) return <div className="px-8 py-8 text-sm text-gray-400">Loading…</div>
@@ -361,18 +367,30 @@ export default function EditClientPage() {
         {/* Password reset */}
         <form onSubmit={handlePasswordReset} className="bg-white border border-pgm-line rounded-xl p-6 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Reset client password</h2>
-            <p className="text-xs text-gray-400">Client will be prompted to change it on next login.</p>
+            <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Set the club’s password</h2>
+            <p className="text-xs text-gray-400">Type the password you want to give the club. Use Show to check it before saving.</p>
           </div>
           <Input
-            label="New temporary password"
+            label="New password"
             type="password"
-            placeholder="••••••••"
+            autoComplete="new-password"
+            placeholder="At least 8 characters"
             value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
+            onChange={(e) => { setNewPassword(e.target.value); setPasswordMsg('') }}
           />
+          <label className="flex items-start gap-2.5 text-sm text-pgm-ink cursor-pointer">
+            <input type="checkbox" checked={mustChange} onChange={(e) => setMustChange(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-pgm-green" />
+            <span>
+              Ask them to choose their own password when they first sign in
+              <span className="block text-xs text-gray-400">Leave unticked to keep the password you set.</span>
+            </span>
+          </label>
+          {passwordMsg && (
+            <p className={`text-sm rounded-lg px-3 py-2 ${passwordMsg.startsWith('✓') ? 'text-pgm-green bg-green-50' : 'text-red-600 bg-red-50'}`}>{passwordMsg}</p>
+          )}
           <Button type="submit" variant="secondary" disabled={resetting || !newPassword}>
-            {resetting ? 'Resetting…' : 'Reset password'}
+            {resetting ? 'Saving…' : 'Set password'}
           </Button>
         </form>
       </div>
