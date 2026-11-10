@@ -195,6 +195,12 @@ export function demoData(kind: Kind, days: number): unknown {
           row('https://example.com/', 620, 9800, 3.1), row('https://example.com/christmas-parties/', 180, 7600, 6.2),
           row('https://example.com/weddings/', 95, 4900, 8.9), row('https://example.com/membership/', 88, 3600, 7.7),
         ],
+        topMovers: [
+          { key: 'golf membership prices', previousPosition: 13.6, position: 8.3, change: 5.3, impressions: Math.round(1700 * scale), newOnPage1: true },
+          { key: 'christmas party venue near me', previousPosition: 11.2, position: 7.4, change: 3.8, impressions: Math.round(5200 * scale), newOnPage1: true },
+          { key: 'sunday lunch near me', previousPosition: 17.9, position: 12.6, change: 5.3, impressions: Math.round(6400 * scale), newOnPage1: false },
+          { key: 'golf club christmas lunch', previousPosition: 7.8, position: 5.1, change: 2.7, impressions: Math.round(2300 * scale), newOnPage1: false },
+        ],
         startDate: start.toISOString().slice(0, 10),
         endDate: end.toISOString().slice(0, 10),
       }
