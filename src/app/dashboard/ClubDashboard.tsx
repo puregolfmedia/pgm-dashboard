@@ -14,6 +14,7 @@ import GoalProgressList from '@/components/dashboard/GoalProgressList'
 import EnquiriesManager from '@/components/dashboard/EnquiriesManager'
 import EmailCampaigns from '@/components/dashboard/EmailCampaigns'
 import SearchTable from '@/components/dashboard/SearchTable'
+import SearchMovers from '@/components/dashboard/SearchMovers'
 import Section from '@/components/dashboard/Section'
 import Button from '@/components/ui/Button'
 import Icon from '@/components/ui/Icon'
@@ -334,6 +335,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
               </div>
               <SearchTable title="Top search terms" keyLabel="What people searched for" rows={(seo.data?.topQueries ?? []).slice(0, 10)}
                 loading={loading} emptyText="No search data for these dates yet" />
+              <SearchMovers rows={seo.data?.topMovers ?? []} loading={loading} comparison={cmp} />
             </>
           )}
         </Section>

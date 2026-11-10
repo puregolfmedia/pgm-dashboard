@@ -54,6 +54,7 @@ export const sectionHelp: Record<string, string> = {
   'Campaign breakdown': 'Each ad campaign and how it performed.',
   'Top search terms': 'What people typed into Google before seeing or clicking your website.',
   'Top pages in Google': 'Which pages of your website appear in Google, and how they perform.',
+  'Biggest climbs on Google': 'Searches where your website moved up Google’s results. Position 1 is the top; 1–10 is the first page. Searches with your club’s name are left out.',
 }
 
 export const pageHelp: Record<string, string> = {

@@ -20,13 +20,52 @@ export interface SearchRow extends SearchTotals {
   key: string
 }
 
+export interface SearchMover {
+  key: string
+  previousPosition: number
+  position: number
+  change: number       // places gained (positive = moved up Google)
+  impressions: number  // times shown in the current period
+  newOnPage1: boolean  // was below position 10, now on page 1
+}
+
 export interface SearchConsoleData {
   current: SearchTotals
   previous: SearchTotals
   topQueries: SearchRow[]
   topPages: SearchRow[]
+  topMovers?: SearchMover[]
   startDate: string
   endDate: string
+}
+
+// Searches that moved up Google between the previous period and this one.
+// Only searches shown at least MIN_SHOWN times in both periods count, so one
+// stray search can't create a big "move". Searches containing the club's own
+// name are left out: they rank at the top already, so they say nothing new.
+const MIN_SHOWN = 3
+const MAX_MOVERS = 6
+
+function brandStem(siteUrl: string): string | null {
+  const host = siteUrl.replace(/^sc-domain:/, '').replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '')
+  const label = host.split('.')[0].toLowerCase().replace(/golfclub|golfcourse|golf|club|country|resort|estate/g, '')
+  return label.length >= 4 ? label.slice(0, 5) : null
+}
+
+export function topMovers(siteUrl: string, current: SearchRow[], previous: SearchRow[]): SearchMover[] {
+  const stem = brandStem(siteUrl)
+  const before = new Map(previous.map((r) => [r.key.toLowerCase(), r]))
+  return current
+    .filter((r) => r.impressions >= MIN_SHOWN && (!stem || !r.key.toLowerCase().includes(stem)))
+    .flatMap((r) => {
+      const p = before.get(r.key.toLowerCase())
+      if (!p || p.impressions < MIN_SHOWN) return []
+      const change = Math.round((p.position - r.position) * 10) / 10
+      if (change < 1) return []
+      return [{ key: r.key, previousPosition: p.position, position: r.position, change, impressions: r.impressions, newOnPage1: p.position > 10 && r.position <= 10 }]
+    })
+    .sort((a, b) => Number(b.newOnPage1) - Number(a.newOnPage1) || b.change - a.change || b.impressions - a.impressions)
+    .slice(0, MAX_MOVERS)
 }
 
 async function query(client: JWT, siteUrl: string, body: Record<string, unknown>): Promise<any[]> {
@@ -67,11 +106,15 @@ export async function fetchSearchConsole(
 
   const range = { startDate: fmt(start), endDate: fmt(end) }
 
-  const [current, previous, queries, pages] = await Promise.all([
+  const prevRange = { startDate: fmt(prevStart), endDate: fmt(prevEnd) }
+
+  const [current, previous, queries, pages, allQueries, prevQueries] = await Promise.all([
     query(client, siteUrl, { ...range }),
-    query(client, siteUrl, { startDate: fmt(prevStart), endDate: fmt(prevEnd) }),
+    query(client, siteUrl, { ...prevRange }),
     query(client, siteUrl, { ...range, dimensions: ['query'], rowLimit: 25 }),
     query(client, siteUrl, { ...range, dimensions: ['page'], rowLimit: 25 }),
+    query(client, siteUrl, { ...range, dimensions: ['query'], rowLimit: 1000 }),
+    query(client, siteUrl, { ...prevRange, dimensions: ['query'], rowLimit: 1000 }),
   ])
 
   const toRows = (rows: any[]): SearchRow[] =>
@@ -82,6 +125,7 @@ export async function fetchSearchConsole(
     previous: toTotals(previous[0]),
     topQueries: toRows(queries),
     topPages: toRows(pages),
+    topMovers: topMovers(siteUrl, toRows(allQueries), toRows(prevQueries)),
     startDate: range.startDate,
     endDate: range.endDate,
   }
