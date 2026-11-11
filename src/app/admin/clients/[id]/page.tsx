@@ -32,6 +32,9 @@ export default function EditClientPage() {
     searchConsoleSiteUrl: '',
     bookingGoalLabel: '',
     membershipGoalLabel: '',
+    ga4GolfEventNames: '',
+    golfPageWords: '',
+    clubhousePageWords: '',
     logoUrl: '',
     brandColor: '',
     reportingStartDate: '',
@@ -66,6 +69,9 @@ export default function EditClientPage() {
             searchConsoleSiteUrl: cfg.searchConsoleSiteUrl ?? '',
             bookingGoalLabel: cfg.bookingGoalLabel ?? '',
             membershipGoalLabel: cfg.membershipGoalLabel ?? '',
+            ga4GolfEventNames: cfg.ga4GolfEventNames ?? '',
+            golfPageWords: cfg.golfPageWords ?? '',
+            clubhousePageWords: cfg.clubhousePageWords ?? '',
             ga4TrackingStartDate: cfg.ga4TrackingStartDate ? String(cfg.ga4TrackingStartDate).slice(0, 10) : '',
             ga4BookingStartDate: cfg.ga4BookingStartDate ? String(cfg.ga4BookingStartDate).slice(0, 10) : '',
           })
@@ -209,11 +215,42 @@ export default function EditClientPage() {
           />
           <Input
             label="What the club calls it"
-            hint="Shown on the Membership tab instead of “Membership enquiries”. Leave empty to keep the default."
+            hint="What golf-side clicks are called in the Golf view (e.g. “Membership enquiries”). Leave empty to say “Clicks”."
             placeholder="Membership enquiries"
             value={form.membershipGoalLabel}
             onChange={set('membershipGoalLabel')}
           />
+
+          <div className="border-t border-gray-100 pt-5 space-y-4">
+            <div>
+              <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Golf / Clubhouse split</h2>
+              <p className="text-xs text-gray-400">
+                Powers the Whole club / Golf / Clubhouse switch on the dashboard. A visit counts as golf or clubhouse when the page it
+                started on has one of these words in its address; emails and Google results are split the same way. Leave a box empty to use the defaults.
+              </p>
+            </div>
+            <Input
+              label="Golf click events"
+              hint="GA4 events that count as golf clicks, separated by commas — e.g. membership_enquiry, tee_time_click. Empty = the membership event above."
+              placeholder="membership_enquiry, tee_time_click"
+              value={form.ga4GolfEventNames}
+              onChange={set('ga4GolfEventNames')}
+            />
+            <Input
+              label="Golf page words"
+              hint="Default: member, green-fee, visitor, societ, course, tee-time, junior, lesson, academy, competition, open-day, handicap, pro-shop, golf-day"
+              placeholder="member, green-fee, visitor, societ, course"
+              value={form.golfPageWords}
+              onChange={set('golfPageWords')}
+            />
+            <Input
+              label="Clubhouse page words"
+              hint="Default: christmas, festive, function, wedding, dining, restaurant, menu, clubhouse, afternoon-tea, party, parties, private-hire, venue, sunday-lunch, event, celebration, meeting"
+              placeholder="christmas, function, wedding, dining"
+              value={form.clubhousePageWords}
+              onChange={set('clubhousePageWords')}
+            />
+          </div>
 
           <div className="border-t border-gray-100 pt-5">
             <h2 className="text-sm font-semibold text-pgm-ink mb-0.5">Meta Ads</h2>

@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { fetchGA4Overview, fetchGA4DailyBookings, fetchGA4TrafficSources, fetchGA4LandingPages } from '@/lib/ga4'
 import { fetchMetaOverview } from '@/lib/meta'
 import { trackingDates, canCompare } from '@/lib/tracking'
+import { areaFromParams, areaWords, areaEvents, areaLabel } from '@/lib/areas'
 import { bookingsFromDate } from '@/lib/ga4'
 import { cacheGet, cacheSet, makeCacheKey } from '@/lib/cache'
 import { pctChange, formatNumber, formatCurrency, formatPercent } from '@/lib/utils'
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
   const requestedClientId = url.searchParams.get('clientId') ?? clientId
   const range = rangeFromParams(url.searchParams)
   const days = range.days
+  const area = areaFromParams(url.searchParams)
 
   if (user.role !== 'ADMIN' && requestedClientId !== clientId) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'Forbidden' }, { status: 403 })
@@ -32,10 +34,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'No client associated' }, { status: 400 })
   }
 
-  const demo = await demoResponse(requestedClientId, 'overview', days)
+  const demo = await demoResponse(requestedClientId, 'overview', days, area)
   if (demo) return demo
 
-  const cacheKey = makeCacheKey(requestedClientId, 'overview-v2', range.key)
+  const cacheKey = makeCacheKey(requestedClientId, 'overview-v3', `${range.key}:${area}`)
   const cached = await cacheGet<any>(cacheKey)
   if (cached) {
     return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
@@ -47,8 +49,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    const bookingEventName = config.ga4BookingEventName ?? 'generate_lead'
-    const tracking = trackingDates(config)
+    // Golf / clubhouse view: its own click events, and only visits that began on its pages
+    const bookingEventName = areaEvents(area, config)
+    const tracking = { ...trackingDates(config), pages: areaWords(area, config) }
     const compare = canCompare(range, tracking)
 
     const [ga4, meta, dailyBookings, trafficSources, landingPages] = await Promise.allSettled([
@@ -62,7 +65,7 @@ export async function GET(request: Request) {
         ? fetchGA4DailyBookings(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range, tracking)
         : Promise.resolve([]),
       config.ga4PropertyId && config.ga4ServiceAccountJson
-        ? fetchGA4TrafficSources(config.ga4PropertyId, config.ga4ServiceAccountJson, range)
+        ? fetchGA4TrafficSources(config.ga4PropertyId, config.ga4ServiceAccountJson, range, tracking)
         : Promise.resolve([]),
       config.ga4PropertyId && config.ga4ServiceAccountJson
         ? fetchGA4LandingPages(config.ga4PropertyId, config.ga4ServiceAccountJson, bookingEventName, range, tracking)
@@ -133,7 +136,8 @@ export async function GET(request: Request) {
       trafficSources: traffic,
       landingPages: pages,
       warnings,
-      labels: { booking: config.bookingGoalLabel || null },
+      labels: { booking: areaLabel(area, config) },
+      area,
       tracking: { websiteFrom: tracking.websiteFrom ?? null, bookingsFrom: bookingsFromDate(tracking) },
     }
 

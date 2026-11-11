@@ -86,7 +86,9 @@ function toTotals(row: any | undefined): SearchTotals {
 export async function fetchSearchConsole(
   siteUrl: string,
   encryptedServiceAccountJson: string,
-  days: number | DateRange = 30
+  days: number | DateRange = 30,
+  /** Golf or clubhouse view: only results for pages whose address contains one of these words */
+  pageWords?: string[] | null
 ): Promise<SearchConsoleData> {
   const creds = JSON.parse(decrypt(encryptedServiceAccountJson))
   const client = new JWT({ email: creds.client_email, key: creds.private_key, scopes: [SCOPE] })
@@ -107,14 +109,18 @@ export async function fetchSearchConsole(
   const range = { startDate: fmt(start), endDate: fmt(end) }
 
   const prevRange = { startDate: fmt(prevStart), endDate: fmt(prevEnd) }
+  const escape = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const scope = pageWords?.length
+    ? { dimensionFilterGroups: [{ filters: [{ dimension: 'page', operator: 'includingRegex', expression: `(?i)(${pageWords.map(escape).join('|')})` }] }] }
+    : {}
 
   const [current, previous, queries, pages, allQueries, prevQueries] = await Promise.all([
-    query(client, siteUrl, { ...range }),
-    query(client, siteUrl, { ...prevRange }),
-    query(client, siteUrl, { ...range, dimensions: ['query'], rowLimit: 25 }),
-    query(client, siteUrl, { ...range, dimensions: ['page'], rowLimit: 25 }),
-    query(client, siteUrl, { ...range, dimensions: ['query'], rowLimit: 1000 }),
-    query(client, siteUrl, { ...prevRange, dimensions: ['query'], rowLimit: 1000 }),
+    query(client, siteUrl, { ...range, ...scope }),
+    query(client, siteUrl, { ...prevRange, ...scope }),
+    query(client, siteUrl, { ...range, ...scope, dimensions: ['query'], rowLimit: 25 }),
+    query(client, siteUrl, { ...range, ...scope, dimensions: ['page'], rowLimit: 25 }),
+    query(client, siteUrl, { ...range, ...scope, dimensions: ['query'], rowLimit: 1000 }),
+    query(client, siteUrl, { ...prevRange, ...scope, dimensions: ['query'], rowLimit: 1000 }),
   ])
 
   const toRows = (rows: any[]): SearchRow[] =>

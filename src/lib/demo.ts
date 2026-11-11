@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { type Area, DEFAULT_WORDS, matchesArea } from '@/lib/areas'
 
 // Sample data for a demo club, so prospects can be shown a realistic
 // dashboard without connecting any of their accounts. Numbers are made up but
@@ -8,12 +9,15 @@ import { prisma } from '@/lib/prisma'
 type Kind = 'overview' | 'visitors' | 'membership' | 'email' | 'paid-social' | 'pages' | 'utms' | 'seo'
 
 /** Return sample data if this club is a demo club, otherwise null. */
-export async function demoResponse(clientId: string | null | undefined, kind: Kind, days: number) {
+export async function demoResponse(clientId: string | null | undefined, kind: Kind, days: number, area: Area = 'all') {
   if (!clientId) return null
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { isDemo: true } })
   if (!client?.isDemo) return null
-  return NextResponse.json({ data: demoData(kind, days), lastUpdated: new Date().toISOString(), error: null })
+  return NextResponse.json({ data: demoData(kind, days, area), lastUpdated: new Date().toISOString(), error: null })
 }
+
+// Roughly how a club's visits split between its golf and clubhouse pages
+const AREA_SHARE: Record<Area, number> = { all: 1, golf: 0.5, clubhouse: 0.38 }
 
 function rng(seed: number) {
   let s = seed
@@ -35,11 +39,13 @@ function daily(days: number, base: number, seed: number) {
   })
 }
 
-export function demoData(kind: Kind, days: number): unknown {
-  const scale = days / 30
+export function demoData(kind: Kind, days: number, area: Area = 'all'): unknown {
+  const share = AREA_SHARE[area]
+  const scale = (days / 30) * share
+  const words = area === 'all' ? null : DEFAULT_WORDS[area]
   switch (kind) {
     case 'overview': {
-      const dailyBookings = daily(days, 3, 7)
+      const dailyBookings = daily(days, area === 'golf' ? 1.4 : area === 'clubhouse' ? 2.2 : 3.6, 7)
       const bookings = dailyBookings.reduce((s, d) => s + d.bookings, 0)
       const spend = 420 * scale
       return {
@@ -60,9 +66,9 @@ export function demoData(kind: Kind, days: number): unknown {
           { source: 'Email', sessions: Math.round(250 * scale) },
           { source: 'Referral', sessions: Math.round(140 * scale) },
         ],
-        landingPages: demoPages(scale),
+        landingPages: demoPages(days / 30).filter((p) => matchesArea(p.page, words)),
         warnings: [],
-        labels: { booking: 'Christmas enquiries' },
+        labels: { booking: area === 'clubhouse' ? 'Christmas enquiries' : 'Clicks' },
       }
     }
     case 'visitors': {
@@ -71,7 +77,7 @@ export function demoData(kind: Kind, days: number): unknown {
         const d = new Date()
         d.setDate(d.getDate() - (days - i)) // up to yesterday
         const weekend = d.getDay() === 0 || d.getDay() === 6 ? 1.3 : 1
-        const base = 139 * weekend * (0.85 + (i / days) * 0.3)
+        const base = 139 * share * weekend * (0.85 + (i / days) * 0.3)
         return {
           date: d.toISOString().slice(0, 10).replace(/-/g, ''),
           sessions: Math.round(base * (0.8 + r() * 0.4)),
@@ -102,22 +108,27 @@ export function demoData(kind: Kind, days: number): unknown {
       }
     }
     case 'membership': {
-      const trend = daily(days, 1, 11)
-      const enquiries = trend.reduce((s, d) => s + d.bookings, 0)
+      const trend = daily(days, 0.6, 11)
+      const total = trend.reduce((sum, d) => sum + d.bookings, 0)
+      // Monthly membership value, building from £348k towards a £500k target
+      const months = [[-4, 341000, 405], [-3, 343500, 407], [-2, 345000, 409], [-1, 348000, 412], [0, 361500, 426]]
+      const history = months.map(([offset, value, members]) => {
+        const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + offset)
+        return { date: d.toISOString(), value, members }
+      })
+      const target = new Date(); target.setMonth(target.getMonth() + 10, 1)
       return {
-        label: 'Membership enquiries',
-        metrics: {
-          enquiries: metric(nf(enquiries), 15, days),
-          sessions: metric(nf(4180 * scale), 18, days),
-          conversionRate: { value: `${((enquiries / (4180 * scale)) * 100).toFixed(2)}%`, change: 0, changePeriod: `last ${days} days` },
+        goal: { baseline: 348000, target: 500000, targetDate: target.toISOString() },
+        history,
+        enquiries: {
+          label: 'Membership enquiries', total, change: 15, daily: trend,
+          channels: [
+            { channel: 'Organic Search', count: Math.round(total * 0.42) },
+            { channel: 'Paid Social', count: Math.round(total * 0.28) },
+            { channel: 'Direct', count: Math.round(total * 0.18) },
+            { channel: 'Email', count: Math.round(total * 0.12) },
+          ].filter((c) => c.count > 0),
         },
-        trend,
-        sources: [
-          { source: 'Organic Search', sessions: Math.round(1650 * scale) },
-          { source: 'Direct', sessions: Math.round(1120 * scale) },
-          { source: 'Paid Social', sessions: Math.round(640 * scale) },
-        ],
-        eventName: 'membership_enquiry',
       }
     }
     case 'email': {
@@ -125,7 +136,8 @@ export function demoData(kind: Kind, days: number): unknown {
         { id: 'd1', name: 'Book your Christmas party at the club', daysAgo: 4, sent: 1840, open: 0.24, click: 0.031 },
         { id: 'd2', name: 'Sunday lunch is back — book a table', daysAgo: 18, sent: 1826, open: 0.21, click: 0.022 },
         { id: 'd3', name: 'Winter membership offer', daysAgo: 27, sent: 1810, open: 0.19, click: 0.017 },
-      ].filter((c) => c.daysAgo <= days).map((c) => {
+        { id: 'd4', name: 'Green fee deals for December', daysAgo: 11, sent: 1832, open: 0.2, click: 0.026 },
+      ].filter((c) => c.daysAgo <= days && matchesArea(c.name, words)).map((c) => {
         const d = new Date(); d.setDate(d.getDate() - c.daysAgo)
         return {
           id: c.id, name: c.name, sentAt: d.toISOString(), sent: c.sent,
@@ -190,17 +202,18 @@ export function demoData(kind: Kind, days: number): unknown {
           row('demo golf club', 410, 1900, 1.2), row('christmas party venue near me', 96, 5200, 7.4),
           row('golf club christmas lunch', 71, 2300, 5.1), row('wedding venue golf club', 44, 3100, 9.8),
           row('sunday lunch near me', 38, 6400, 12.6), row('golf membership prices', 35, 1700, 8.3),
-        ],
+          row('green fees near me', 31, 2900, 9.1), row('golf society days', 22, 1300, 6.4),
+        ].filter((q) => matchesArea(q.key, words)),
         topPages: [
           row('https://example.com/', 620, 9800, 3.1), row('https://example.com/christmas-parties/', 180, 7600, 6.2),
           row('https://example.com/weddings/', 95, 4900, 8.9), row('https://example.com/membership/', 88, 3600, 7.7),
         ],
-        topMovers: [
+        topMovers: ([
           { key: 'golf membership prices', previousPosition: 13.6, position: 8.3, change: 5.3, impressions: Math.round(1700 * scale), newOnPage1: true },
           { key: 'christmas party venue near me', previousPosition: 11.2, position: 7.4, change: 3.8, impressions: Math.round(5200 * scale), newOnPage1: true },
           { key: 'sunday lunch near me', previousPosition: 17.9, position: 12.6, change: 5.3, impressions: Math.round(6400 * scale), newOnPage1: false },
           { key: 'golf club christmas lunch', previousPosition: 7.8, position: 5.1, change: 2.7, impressions: Math.round(2300 * scale), newOnPage1: false },
-        ],
+        ] as any[]).filter((q) => matchesArea(q.key, words)),
         startDate: start.toISOString().slice(0, 10),
         endDate: end.toISOString().slice(0, 10),
       }

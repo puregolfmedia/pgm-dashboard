@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { rangeFromParams } from '@/lib/dateRange'
-import { demoResponse } from '@/lib/demo'
+import { demoData } from '@/lib/demo'
+import { areaFromParams, areaWords, matchesArea, type Area } from '@/lib/areas'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchMetaOverview, fetchMetaCampaigns } from '@/lib/meta'
@@ -23,14 +24,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'Forbidden' }, { status: 403 })
   }
 
-  const demo = await demoResponse(requestedClientId, 'paid-social', days)
-  if (demo) return demo
+  const area = areaFromParams(url.searchParams)
+  const client = requestedClientId ? await prisma.client.findUnique({ where: { id: requestedClientId }, select: { isDemo: true } }) : null
+  const config = await prisma.dataSourceConfig.findUnique({ where: { clientId: requestedClientId ?? '' } })
+  if (client?.isDemo) {
+    const data = scopeToArea(demoData('paid-social', days) as any, area, config)
+    return NextResponse.json({ data, lastUpdated: new Date().toISOString(), error: null })
+  }
 
   const cacheKey = makeCacheKey(requestedClientId, 'paid-social', range.key)
   const cached = await cacheGet<any>(cacheKey)
-  if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
+  if (cached) return NextResponse.json({ data: scopeToArea(cached.data, area, config), lastUpdated: cached.fetchedAt, error: null })
 
-  const config = await prisma.dataSourceConfig.findUnique({ where: { clientId: requestedClientId } })
   if (!config?.metaAdAccountId || !config?.metaAccessToken) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'Meta not configured' }, { status: 503 })
   }
@@ -55,9 +60,36 @@ export async function GET(request: Request) {
     }
 
     const result = await cacheSet(cacheKey, data)
-    return NextResponse.json({ data, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
+    return NextResponse.json({ data: scopeToArea(data, area, config), lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
   } catch (err) {
     console.error('[paid-social]', err)
     return NextResponse.json({ data: null, lastUpdated: null, error: 'Failed to fetch Meta data' }, { status: 503 })
+  }
+}
+
+/**
+ * Golf / clubhouse view: keep only campaigns whose name mentions that side
+ * (e.g. "PGM | Golf – Winter membership") and add their figures up again.
+ * Comparisons aren't available per campaign, so no % change is shown.
+ */
+function scopeToArea(data: any, area: Area, config: any) {
+  const words = areaWords(area, config)
+  if (!words) return data
+  const campaigns = (data.campaigns ?? []).filter((c: any) => matchesArea(c.name ?? '', [...words, area]))
+  const sum = (k: string) => campaigns.reduce((s: number, c: any) => s + (Number(c[k]) || 0), 0)
+  const spend = sum('spend'), impressions = sum('impressions'), clicks = sum('clicks')
+  const nf = (n: number) => new Intl.NumberFormat('en-GB').format(Math.round(n))
+  return {
+    metrics: {
+      spend: { value: formatCurrency(spend), change: 0 },
+      impressions: { value: nf(impressions), change: 0 },
+      clicks: { value: nf(clicks), change: 0 },
+      ctr: { value: impressions ? formatPercent((clicks / impressions) * 100) : '—', change: 0 },
+      cpm: { value: impressions ? formatCurrency((spend / impressions) * 1000) : '—', change: 0 },
+      cpc: { value: clicks ? formatCurrency(spend / clicks) : '—', change: 0 },
+      roas: { value: '—', change: 0 },
+    },
+    campaigns,
+    area,
   }
 }

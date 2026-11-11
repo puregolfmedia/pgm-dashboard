@@ -42,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const body = await request.json()
   const { ga4PropertyId, ga4ServiceAccountJson, ga4BookingEventName, ga4MembershipEventName,
           metaAdAccountId, metaAccessToken, emailOctopusApiKey,
-          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, bookingGoalLabel, membershipGoalLabel, logoUrl, brandColor, reportingStartDate, ga4TrackingStartDate, ga4BookingStartDate, newPassword, passwordResetRequired } = body
+          mailchimpApiKey, mailchimpListId, searchConsoleSiteUrl, bookingGoalLabel, membershipGoalLabel, ga4GolfEventNames, golfPageWords, clubhousePageWords, logoUrl, brandColor, reportingStartDate, ga4TrackingStartDate, ga4BookingStartDate, newPassword, passwordResetRequired } = body
 
   // Handle password reset
   let passwordUpdated: number | undefined
@@ -98,6 +98,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (mailchimpApiKey) configData.mailchimpApiKey = encrypt(mailchimpApiKey)
   if (bookingGoalLabel !== undefined) configData.bookingGoalLabel = bookingGoalLabel.trim().slice(0, 60) || null
   if (membershipGoalLabel !== undefined) configData.membershipGoalLabel = membershipGoalLabel.trim().slice(0, 60) || null
+  // Comma-separated lists, tidied: trimmed, no empties, lower-case for page words
+  const list = (v: string, lower: boolean) => v.split(',').map((w) => (lower ? w.trim().toLowerCase() : w.trim())).filter(Boolean).join(', ').slice(0, 500) || null
+  if (typeof ga4GolfEventNames === 'string') configData.ga4GolfEventNames = list(ga4GolfEventNames, false)
+  if (typeof golfPageWords === 'string') configData.golfPageWords = list(golfPageWords, true)
+  if (typeof clubhousePageWords === 'string') configData.clubhousePageWords = list(clubhousePageWords, true)
   if (searchConsoleSiteUrl !== undefined) configData.searchConsoleSiteUrl = searchConsoleSiteUrl.trim() || null
   for (const [key, value] of [['ga4TrackingStartDate', ga4TrackingStartDate], ['ga4BookingStartDate', ga4BookingStartDate]] as const) {
     if (value === undefined) continue

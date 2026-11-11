@@ -14,6 +14,7 @@ export interface SummaryInput {
   emailSince?: string | null
   paid?: any
   seo?: any
+  membership?: any
 }
 
 export interface BriefItem {
@@ -33,6 +34,15 @@ export function buildSummary(d: SummaryInput, _compareLabel?: string): BriefItem
   const m = d.overview?.metrics
   const label = d.overview?.labels?.booking ?? 'clicks'
   const named = label === 'clicks' || label === 'Clicks' ? 'clicks to book or enquire' : label
+
+  // Membership value first: it's the club's main goal
+  const mv = d.membership
+  const latest = mv?.history?.[mv.history.length - 1]
+  if (latest && mv.goal?.target) {
+    const base = mv.goal.baseline ?? mv.history[0].value
+    const pct = mv.goal.target > base ? Math.round(((latest.value - base) / (mv.goal.target - base)) * 100) : 0
+    items.push({ icon: 'goals', text: `Membership value ${gbp(latest.value)}, ${Math.max(0, pct)}% of the way to ${gbp(mv.goal.target)}`, change: 0, target: 'membership' })
+  }
 
   if (m && num(m.sessions.value) > 0) {
     items.push({ icon: 'website', text: `${m.sessions.value} website visits`, change: m.sessions.change ?? 0, target: 'website' })
