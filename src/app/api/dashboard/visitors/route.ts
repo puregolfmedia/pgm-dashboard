@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchGA4Visitors } from '@/lib/ga4'
 import { trackingDates, canCompare } from '@/lib/tracking'
+import { areaFromParams, areaWords, areaEvents } from '@/lib/areas'
 import { cacheGet, cacheSet, makeCacheKey } from '@/lib/cache'
 import type { ApiResponse } from '@/types/api'
 
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
   const requestedClientId = url.searchParams.get('clientId') ?? clientId
   const range = rangeFromParams(url.searchParams)
   const days = range.days
+  const area = areaFromParams(url.searchParams)
 
   if (user.role !== 'ADMIN' && requestedClientId !== clientId) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'Forbidden' }, { status: 403 })
@@ -27,10 +29,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'No client associated' }, { status: 400 })
   }
 
-  const demo = await demoResponse(requestedClientId, 'visitors', days)
+  const demo = await demoResponse(requestedClientId, 'visitors', days, area)
   if (demo) return demo
 
-  const cacheKey = makeCacheKey(requestedClientId, 'visitors-v5', range.key)
+  const cacheKey = makeCacheKey(requestedClientId, 'visitors-v6', `${range.key}:${area}`)
   const cached = await cacheGet<any>(cacheKey)
   if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
 
@@ -40,8 +42,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const tracking = trackingDates(config)
-    const full = await fetchGA4Visitors(config.ga4PropertyId, config.ga4ServiceAccountJson, config.ga4BookingEventName ?? 'generate_lead', range, tracking)
+    const tracking = { ...trackingDates(config), pages: areaWords(area, config) }
+    const full = await fetchGA4Visitors(config.ga4PropertyId, config.ga4ServiceAccountJson, areaEvents(area, config), range, tracking)
     // No comparison when the earlier period starts before tracking did
     const data = canCompare(range, tracking).visits ? full : {
       ...full,

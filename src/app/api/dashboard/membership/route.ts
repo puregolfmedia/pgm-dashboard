@@ -1,83 +1,65 @@
 import { NextResponse } from 'next/server'
 import { rangeFromParams } from '@/lib/dateRange'
 import { demoResponse } from '@/lib/demo'
-import { auth } from '@/lib/auth'
+import { resolveClientAccess } from '@/lib/access'
 import { prisma } from '@/lib/prisma'
-import { fetchGA4Overview, fetchGA4DailyBookings, fetchGA4TrafficSources } from '@/lib/ga4'
+import { fetchGA4Overview, fetchGA4DailyBookings, fetchGA4EventsByChannel } from '@/lib/ga4'
+import { trackingDates, canCompare } from '@/lib/tracking'
 import { cacheGet, cacheSet, makeCacheKey } from '@/lib/cache'
-import { pctChange, formatNumber } from '@/lib/utils'
-import type { ApiResponse } from '@/types/api'
+import { pctChange } from '@/lib/utils'
+
+// Membership: progress towards the club's membership value target (entered
+// monthly by Pure Golf Media), plus membership enquiries from the website.
 
 export async function GET(request: Request) {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ data: null, lastUpdated: null, error: 'Unauthorized' }, { status: 401 })
+  const access = await resolveClientAccess(request)
+  if (access instanceof NextResponse) return access
+  const range = rangeFromParams(new URL(request.url).searchParams)
 
-  const user = session.user as any
-  const clientId = user.clientId
-  const url = new URL(request.url)
-  const requestedClientId = url.searchParams.get('clientId') ?? clientId
-  const range = rangeFromParams(url.searchParams)
-  const days = range.days
-
-  if (user.role !== 'ADMIN' && requestedClientId !== clientId) {
-    return NextResponse.json({ data: null, lastUpdated: null, error: 'Forbidden' }, { status: 403 })
-  }
-
-  if (!requestedClientId) {
-    return NextResponse.json({ data: null, lastUpdated: null, error: 'No client associated' }, { status: 400 })
-  }
-
-  const demo = await demoResponse(requestedClientId, 'membership', days)
+  const demo = await demoResponse(access.clientId, 'membership', range.days)
   if (demo) return demo
 
-  const cacheKey = makeCacheKey(requestedClientId, 'membership', range.key)
-  const cached = await cacheGet<any>(cacheKey)
-  if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
+  const [client, values, config] = await Promise.all([
+    prisma.client.findUnique({ where: { id: access.clientId }, select: { membershipBaseline: true, membershipTarget: true, membershipTargetDate: true } }),
+    prisma.membershipValue.findMany({ where: { clientId: access.clientId }, orderBy: { date: 'asc' }, take: 60 }),
+    prisma.dataSourceConfig.findUnique({ where: { clientId: access.clientId } }),
+  ])
 
-  const config = await prisma.dataSourceConfig.findUnique({ where: { clientId: requestedClientId } })
-  if (!config?.ga4PropertyId || !config?.ga4ServiceAccountJson) {
-    return NextResponse.json({ data: null, lastUpdated: null, error: 'GA4 not configured' }, { status: 503 })
+  const goal = {
+    baseline: client?.membershipBaseline ?? null,
+    target: client?.membershipTarget ?? null,
+    targetDate: client?.membershipTargetDate?.toISOString() ?? null,
   }
+  const history = values.map((v) => ({ date: v.date.toISOString(), value: v.value, members: v.members }))
 
-  const membershipEvent = config.ga4MembershipEventName ?? 'membership_enquiry'
-
-  try {
-    const [overview, trend, sources] = await Promise.all([
-      fetchGA4Overview(config.ga4PropertyId, config.ga4ServiceAccountJson, membershipEvent, range),
-      fetchGA4DailyBookings(config.ga4PropertyId, config.ga4ServiceAccountJson, membershipEvent, range),
-      fetchGA4TrafficSources(config.ga4PropertyId, config.ga4ServiceAccountJson, range),
-    ])
-
-    const data = {
-      label: config.membershipGoalLabel || null,
-      metrics: {
-        enquiries: {
-          value: formatNumber(overview.current.bookingStarts),
-          change: pctChange(overview.current.bookingStarts, overview.previous.bookingStarts),
-          changePeriod: range.compareLabel,
-        },
-        sessions: {
-          value: formatNumber(overview.current.sessions),
-          change: pctChange(overview.current.sessions, overview.previous.sessions),
-          changePeriod: range.compareLabel,
-        },
-        conversionRate: {
-          value: overview.current.sessions > 0
-            ? `${((overview.current.bookingStarts / overview.current.sessions) * 100).toFixed(2)}%`
-            : '—',
-          change: 0,
-          changePeriod: range.custom ? 'selected dates' : `last ${days} days`,
-        },
-      },
-      trend,
-      sources,
-      eventName: membershipEvent,
+  // Website membership enquiries (GA4), cached like the other Google figures
+  let enquiries: any = null
+  if (config?.ga4PropertyId && config.ga4ServiceAccountJson) {
+    const cacheKey = makeCacheKey(access.clientId, 'membership-v2', range.key)
+    const cached = await cacheGet<any>(cacheKey)
+    if (cached) enquiries = cached.data
+    else {
+      try {
+        const event = config.ga4MembershipEventName || 'membership_enquiry'
+        const tracking = trackingDates(config)
+        const [overview, daily, channels] = await Promise.all([
+          fetchGA4Overview(config.ga4PropertyId, config.ga4ServiceAccountJson, event, range, tracking),
+          fetchGA4DailyBookings(config.ga4PropertyId, config.ga4ServiceAccountJson, event, range, tracking),
+          fetchGA4EventsByChannel(config.ga4PropertyId, config.ga4ServiceAccountJson, event, range, tracking),
+        ])
+        enquiries = {
+          label: config.membershipGoalLabel || 'Membership enquiries',
+          total: overview.current.bookingStarts,
+          change: canCompare(range, tracking).bookings ? pctChange(overview.current.bookingStarts, overview.previous.bookingStarts) : 0,
+          daily,
+          channels,
+        }
+        await cacheSet(cacheKey, enquiries)
+      } catch (err) {
+        console.error('[membership:ga4]', err)
+      }
     }
-
-    const result = await cacheSet(cacheKey, data)
-    return NextResponse.json({ data, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
-  } catch (err) {
-    console.error('[membership]', err)
-    return NextResponse.json({ data: null, lastUpdated: null, error: 'Failed to fetch GA4 data' }, { status: 503 })
   }
+
+  return NextResponse.json({ data: { goal, history, enquiries }, lastUpdated: new Date().toISOString(), error: null })
 }

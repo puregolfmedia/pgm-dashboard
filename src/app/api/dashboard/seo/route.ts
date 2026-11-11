@@ -4,6 +4,7 @@ import { demoResponse } from '@/lib/demo'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchSearchConsole } from '@/lib/searchConsole'
+import { areaFromParams, areaWords } from '@/lib/areas'
 import { cacheGet, cacheSet, makeCacheKey } from '@/lib/cache'
 import type { ApiResponse } from '@/types/api'
 
@@ -26,10 +27,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'No client associated' }, { status: 400 })
   }
 
-  const demo = await demoResponse(requestedClientId, 'seo', days)
+  const demo = await demoResponse(requestedClientId, 'seo', days, areaFromParams(url.searchParams))
   if (demo) return demo
 
-  const cacheKey = makeCacheKey(requestedClientId, 'seo', range.key)
+  const cacheKey = makeCacheKey(requestedClientId, 'seo', `${range.key}:${areaFromParams(url.searchParams)}`)
   const cached = await cacheGet<any>(cacheKey)
   if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
 
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = await fetchSearchConsole(config.searchConsoleSiteUrl, config.ga4ServiceAccountJson, range)
+    const data = await fetchSearchConsole(config.searchConsoleSiteUrl, config.ga4ServiceAccountJson, range, areaWords(areaFromParams(url.searchParams), config))
     const result = await cacheSet(cacheKey, data)
     return NextResponse.json({ data, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
   } catch (err: any) {

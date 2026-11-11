@@ -9,6 +9,39 @@ export interface TrackingDates {
   websiteFrom?: string | null
   /** When the booking/enquiry event started being counted (e.g. after set-up tests) */
   bookingsFrom?: string | null
+  /** Golf or clubhouse view: only count visits that started on a page whose address contains one of these */
+  pages?: string[] | null
+}
+
+/** Visits that began on a page whose address contains any of the words. */
+function pagesFilter(words: string[]) {
+  return {
+    orGroup: {
+      expressions: words.map((w) => ({
+        filter: { fieldName: 'landingPagePlusQueryString', stringFilter: { value: w, matchType: 'CONTAINS' as const, caseSensitive: false } },
+      })),
+    },
+  }
+}
+
+/** One event, or several separated by commas (e.g. "membership_enquiry, tee_time_click"). */
+export function eventFilter(names: string) {
+  const list = names.split(',').map((n) => n.trim()).filter(Boolean)
+  return list.length > 1
+    ? { filter: { fieldName: 'eventName', inListFilter: { values: list } } }
+    : { filter: { fieldName: 'eventName', stringFilter: { value: list[0] ?? names, matchType: 'EXACT' as const } } }
+}
+
+/** A client whose every report is limited to the chosen pages (golf or clubhouse). */
+function scoped(encryptedServiceAccountJson: string, pages?: string[] | null) {
+  const client = getClient(encryptedServiceAccountJson)
+  if (!pages?.length) return client
+  const extra = pagesFilter(pages)
+  const runReport = ((req: any, ...rest: any[]) => client.runReport({
+    ...req,
+    dimensionFilter: req.dimensionFilter ? { andGroup: { expressions: [req.dimensionFilter, extra] } } : extra,
+  }, ...rest)) as typeof client.runReport
+  return { runReport } as unknown as typeof client
 }
 
 const later = (a: string, b?: string | null) => (b && b > a ? b : a)
@@ -51,7 +84,7 @@ export async function fetchGA4Overview(
   days: number | DateRange = 30,
   tracking?: TrackingDates
 ): Promise<GA4OverviewResult> {
-  const client = getClient(encryptedServiceAccountJson)
+  const client = scoped(encryptedServiceAccountJson, tracking?.pages)
 
   const r = toRange(days)
 
@@ -62,7 +95,7 @@ export async function fetchGA4Overview(
       property: `properties/${propertyId}`,
       dateRanges: [w],
       metrics: [{ name: 'eventCount' }],
-      dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: bookingEventName, matchType: 'EXACT' } } },
+      dimensionFilter: eventFilter(bookingEventName),
     })
     return parseFloat(res.rows?.[0]?.metricValues?.[0]?.value ?? '0')
   }
@@ -108,7 +141,7 @@ export async function fetchGA4DailyBookings(
   days: number | DateRange = 30,
   tracking?: TrackingDates
 ): Promise<DailyBooking[]> {
-  const client = getClient(encryptedServiceAccountJson)
+  const client = scoped(encryptedServiceAccountJson, tracking?.pages)
   const r = toRange(days)
   const window = clip(r.start, r.end, bookingsFromDate(tracking))
   if (!window) return []
@@ -120,12 +153,7 @@ export async function fetchGA4DailyBookings(
     dateRanges: [{ startDate: fmt(start), endDate: fmt(end) }],
     dimensions: [{ name: 'date' }],
     metrics: [{ name: 'eventCount' }],
-    dimensionFilter: {
-      filter: {
-        fieldName: 'eventName',
-        stringFilter: { value: bookingEventName, matchType: 'EXACT' },
-      },
-    },
+    dimensionFilter: eventFilter(bookingEventName),
     orderBys: [{ dimension: { dimensionName: 'date' } }],
   })
 
@@ -152,9 +180,10 @@ export async function fetchGA4DailyBookings(
 export async function fetchGA4TrafficSources(
   propertyId: string,
   encryptedServiceAccountJson: string,
-  days: number | DateRange = 30
+  days: number | DateRange = 30,
+  tracking?: TrackingDates
 ): Promise<TrafficSource[]> {
-  const client = getClient(encryptedServiceAccountJson)
+  const client = scoped(encryptedServiceAccountJson, tracking?.pages)
   const { start, end } = toRange(days)
   const fmt = (d: string) => d
 
@@ -180,7 +209,7 @@ export async function fetchGA4LandingPages(
   days: number | DateRange = 30,
   tracking?: TrackingDates
 ): Promise<LandingPage[]> {
-  const client = getClient(encryptedServiceAccountJson)
+  const client = scoped(encryptedServiceAccountJson, tracking?.pages)
   const { start, end } = toRange(days)
   const bookingWindow = clip(start, end, bookingsFromDate(tracking))
   const fmt = (d: string) => d
@@ -216,12 +245,7 @@ export async function fetchGA4LandingPages(
         andGroup: {
           expressions: [
             notSetFilter,
-            {
-              filter: {
-                fieldName: 'eventName',
-                stringFilter: { value: bookingEventName, matchType: 'EXACT' as const },
-              },
-            },
+            eventFilter(bookingEventName),
           ],
         },
       },
@@ -287,12 +311,7 @@ export async function fetchGA4UTMs(
         { name: 'sessionCampaignName' },
       ],
       metrics: [{ name: 'eventCount' }],
-      dimensionFilter: {
-        filter: {
-          fieldName: 'eventName',
-          stringFilter: { value: bookingEventName, matchType: 'EXACT' },
-        },
-      },
+      dimensionFilter: eventFilter(bookingEventName),
       limit: 50,
     }),
   ])
@@ -350,7 +369,7 @@ export async function fetchGA4Visitors(
   days: number | DateRange = 30,
   tracking?: TrackingDates
 ): Promise<GA4VisitorMetrics> {
-  const client = getClient(encryptedServiceAccountJson)
+  const client = scoped(encryptedServiceAccountJson, tracking?.pages)
   const r = toRange(days)
   const property = `properties/${propertyId}`
   const current = [{ startDate: r.start, endDate: r.end }]
@@ -390,7 +409,7 @@ export async function fetchGA4Visitors(
       dateRanges: [bookingWindow],
       dimensions: [{ name: 'sessionDefaultChannelGroup' }],
       metrics: [{ name: 'eventCount' }],
-      dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: bookingEventName, matchType: 'EXACT' } } },
+      dimensionFilter: eventFilter(bookingEventName),
       limit: 50,
     }),
     client.runReport({ property, dateRanges: current, dimensions: [{ name: 'date' }], metrics: [{ name: 'sessions' }] }),
@@ -505,7 +524,7 @@ export async function fetchGA4DailyHealth(
       dateRanges: range,
       dimensions: [{ name: 'date' }],
       metrics: [{ name: 'eventCount' }],
-      dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: keyEventName, matchType: 'EXACT' } } },
+      dimensionFilter: eventFilter(keyEventName),
     }),
   ])
 
@@ -524,4 +543,31 @@ export async function fetchGA4DailyHealth(
     day.setDate(day.getDate() + 1)
   }
   return out
+}
+
+/** How many times an event happened, split by where the visit came from (Google, ads, email…). */
+export async function fetchGA4EventsByChannel(
+  propertyId: string,
+  encryptedServiceAccountJson: string,
+  eventNames: string,
+  days: number | DateRange = 30,
+  tracking?: TrackingDates
+): Promise<{ channel: string; count: number }[]> {
+  const client = getClient(encryptedServiceAccountJson)
+  const r = toRange(days)
+  const window = clip(r.start, r.end, bookingsFromDate(tracking))
+  if (!window) return []
+  const [res] = await client.runReport({
+    property: `properties/${propertyId}`,
+    dateRanges: [window],
+    dimensions: [{ name: 'sessionDefaultChannelGroup' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: eventFilter(eventNames),
+    orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 10,
+  })
+  return (res.rows ?? []).map((x) => ({
+    channel: x.dimensionValues?.[0]?.value ?? 'Unknown',
+    count: parseInt(x.metricValues?.[0]?.value ?? '0'),
+  })).filter((x) => x.count > 0)
 }

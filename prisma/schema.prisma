@@ -42,9 +42,27 @@ model Client {
   brandColor  String?
   // When Pure Golf Media's work started; email results are shown from here on
   reportingStartDate DateTime?
+  // Membership value goal (e.g. £348k now → £500k), tracked with monthly entries
+  membershipBaseline   Float?
+  membershipTarget     Float?
+  membershipTargetDate DateTime?
   enquiries   Enquiry[]
   goals       Goal[]
   notes       Note[]
+  membershipValues MembershipValue[]
+}
+
+// One month's total membership value (and member count), entered by Pure Golf Media
+model MembershipValue {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date      DateTime
+  value     Float
+  members   Int?
+  createdAt DateTime @default(now())
+
+  @@index([clientId, date])
 }
 
 // ─── Enquiries, goals and work notes ─────────────────────────────────────────
@@ -127,6 +145,10 @@ model DataSourceConfig {
   // Figures are only trusted from these dates (earlier days are left out)
   ga4TrackingStartDate     DateTime?
   ga4BookingStartDate      DateTime?
+  // Golf / clubhouse split: page-address words for each side, and the golf-side GA4 events
+  golfPageWords            String?
+  clubhousePageWords       String?
+  ga4GolfEventNames        String?
 
   // Meta
   metaAdAccountId          String?

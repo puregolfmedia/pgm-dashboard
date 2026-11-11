@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { fetchEmailOctopusMetrics } from '@/lib/emailOctopus'
 import { fetchMailchimpMetrics } from '@/lib/mailchimp'
+import { areaFromParams, areaWords, matchesArea } from '@/lib/areas'
 import { cacheGet, cacheSet, makeCacheKey } from '@/lib/cache'
 import type { ApiResponse } from '@/types/api'
 
@@ -27,10 +28,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: null, lastUpdated: null, error: 'No client associated' }, { status: 400 })
   }
 
-  const demo = await demoResponse(requestedClientId, 'email', days)
+  const demo = await demoResponse(requestedClientId, 'email', days, areaFromParams(url.searchParams))
   if (demo) return demo
 
-  const cacheKey = makeCacheKey(requestedClientId, 'email-v2', range.key)
+  const cacheKey = makeCacheKey(requestedClientId, 'email-v3', `${range.key}:${areaFromParams(url.searchParams)}`)
   const cached = await cacheGet<any>(cacheKey)
   if (cached) return NextResponse.json({ data: cached.data, lastUpdated: cached.fetchedAt, error: null })
 
@@ -46,9 +47,18 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = provider === 'mailchimp'
+    const all: any = provider === 'mailchimp'
       ? await fetchMailchimpMetrics(config!.mailchimpApiKey!, config!.mailchimpListId!, range)
       : await fetchEmailOctopusMetrics(config!.emailOctopusApiKey!, range)
+    // Golf / clubhouse view: only emails whose name mentions that side, with averages redone
+    const words = areaWords(areaFromParams(url.searchParams), config)
+    const campaigns = (all.campaigns ?? []).filter((c: any) => matchesArea(c.name ?? '', words))
+    const avg = (f: (c: any) => number) => campaigns.length ? Math.round(campaigns.reduce((s: number, c: any) => s + f(c), 0) / campaigns.length * 10) / 10 : 0
+    const data = words ? {
+      ...all, campaigns,
+      totalSent: campaigns.reduce((s: number, c: any) => s + (c.sent ?? 0), 0),
+      avgOpenRate: avg((c) => c.openRate), avgClickRate: avg((c) => c.clickRate),
+    } : all
     const result = await cacheSet(cacheKey, data)
     return NextResponse.json({ data, lastUpdated: result.fetchedAt, error: null } satisfies ApiResponse<typeof data>)
   } catch (err) {
