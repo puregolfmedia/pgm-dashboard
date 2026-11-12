@@ -124,6 +124,8 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   const m = overview.data?.metrics
   // Enquiries, bookings and goals are switched off for now; set to true to bring them back
   const SHOW_ENQUIRIES = false
+  // Membership value and membership enquiries are switched off for now; set to true to bring them back
+  const SHOW_MEMBERSHIP = false
   const label: string = overview.data?.labels?.booking ?? 'Clicks'
   const cmp = compareText(range)
   const emailSince: string | null = club?.reportingStartDate ?? null
@@ -136,8 +138,8 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   const websiteOn = !notConnected(overview.error)
   // Membership shows on the whole-club and golf views once there's something to show
   const mem = membership.data
-  const membershipOn = area !== 'clubhouse' && !!mem && (mem.goal.target != null || mem.history.length > 0 || (mem.enquiries?.total ?? 0) > 0 || isAdmin)
-  const brief = loading ? [] : buildSummary({ overview: overview.data, enquiries: SHOW_ENQUIRIES ? enquiries.data : undefined, email: email.data, emailSince, paid: paid.data, seo: seo.data, membership: area !== 'clubhouse' ? membership.data : undefined }, cmp)
+  const membershipOn = SHOW_MEMBERSHIP && area !== 'clubhouse' && !!mem && (mem.goal.target != null || mem.history.length > 0 || (mem.enquiries?.total ?? 0) > 0 || isAdmin)
+  const brief = loading ? [] : buildSummary({ overview: overview.data, enquiries: SHOW_ENQUIRIES ? enquiries.data : undefined, email: email.data, emailSince, paid: paid.data, seo: seo.data, membership: SHOW_MEMBERSHIP && area !== 'clubhouse' ? membership.data : undefined }, cmp)
   const warnings: string[] = overview.data?.warnings ?? []
   // Older cached visitor data lacks the daily and comparison figures
   const v = visitors.data?.dailySessions ? visitors.data : null
