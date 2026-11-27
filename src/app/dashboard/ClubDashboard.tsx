@@ -21,7 +21,6 @@ import Button from '@/components/ui/Button'
 import Icon from '@/components/ui/Icon'
 import { pctChange } from '@/lib/utils'
 import { buildSummary } from '@/lib/summary'
-import { AREAS, type Area } from '@/lib/areas'
 import type { GoalProgress } from '@/lib/goals'
 
 // The whole club dashboard on one page: a plain-English summary, the headline
@@ -61,15 +60,6 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   const [email, setEmail] = useState<Loaded<any>>(empty)
   const [emailLoading, setEmailLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  // Whole club, Golf or Clubhouse — remembered in this browser tab
-  const [area, setAreaState] = useState<Area>('all')
-  useEffect(() => {
-    try { const a = sessionStorage.getItem('pgm-area'); if (a === 'golf' || a === 'clubhouse') setAreaState(a) } catch { /* ignore */ }
-  }, [])
-  const setArea = (a: Area) => {
-    setAreaState(a)
-    try { sessionStorage.setItem('pgm-area', a) } catch { /* ignore */ }
-  }
 
   const loadEnquiries = useCallback(() => {
     if (!clientId) return
@@ -82,7 +72,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
     if (!clientId) { setLoading(false); return }
     setLoading(true)
     setEnquiriesLoading(true)
-    const q = `clientId=${clientId}&${rangeQs}&area=${area}`
+    const q = `clientId=${clientId}&${rangeQs}`
     loadEnquiries()
     Promise.all([
       load(`/api/dashboard/overview?${q}`), load(`/api/dashboard/visitors?${q}`), load(`/api/dashboard/notes?${q}`),
@@ -92,20 +82,20 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
       setLastUpdated(new Date())
       setLoading(false)
     })
-  }, [clientId, rangeQs, area, loadEnquiries])
+  }, [clientId, rangeQs, loadEnquiries])
 
   // Email always covers everything since the club's start date
   useEffect(() => {
     if (!clientId) return
-    load(`/api/dashboard/club?clientId=${clientId}&area=${area}`).then((c) => {
+    load(`/api/dashboard/club?clientId=${clientId}`).then((c) => {
       setClub(c.data)
       const start = c.data?.reportingStartDate ? String(c.data.reportingStartDate).slice(0, 10) : null
       const to = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10) // last full day
       const from = start ?? new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10)
       setEmailLoading(true)
-      load(`/api/dashboard/email?clientId=${clientId}&from=${from}&to=${to}&area=${area}`).then((e) => { setEmail(e); setEmailLoading(false) })
+      load(`/api/dashboard/email?clientId=${clientId}&from=${from}&to=${to}`).then((e) => { setEmail(e); setEmailLoading(false) })
     })
-  }, [clientId, area])
+  }, [clientId])
 
   if (!clientId) {
     return (
@@ -132,14 +122,14 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
   const s = enquiries.data?.summary
   const prev = enquiries.data?.previous
   // In the golf / clubhouse view, ads only show when some campaigns are named for that side
-  const adsOn = !!paid.data && !paid.error && (area === 'all' || (paid.data.campaigns?.length ?? 0) > 0)
+  const adsOn = !!paid.data && !paid.error
   const searchOn = !notConnected(seo.error)
   const emailOn = !notConnected(email.error)
   const websiteOn = !notConnected(overview.error)
   // Membership shows on the whole-club and golf views once there's something to show
   const mem = membership.data
-  const membershipOn = SHOW_MEMBERSHIP && area !== 'clubhouse' && !!mem && (mem.goal.target != null || mem.history.length > 0 || (mem.enquiries?.total ?? 0) > 0 || isAdmin)
-  const brief = loading ? [] : buildSummary({ overview: overview.data, enquiries: SHOW_ENQUIRIES ? enquiries.data : undefined, email: email.data, emailSince, paid: paid.data, seo: seo.data, membership: SHOW_MEMBERSHIP && area !== 'clubhouse' ? membership.data : undefined }, cmp)
+  const membershipOn = SHOW_MEMBERSHIP && !!mem && (mem.goal.target != null || mem.history.length > 0 || (mem.enquiries?.total ?? 0) > 0 || isAdmin)
+  const brief = loading ? [] : buildSummary({ overview: overview.data, enquiries: SHOW_ENQUIRIES ? enquiries.data : undefined, email: email.data, emailSince, paid: paid.data, seo: seo.data, membership: SHOW_MEMBERSHIP ? membership.data : undefined }, cmp)
   const warnings: string[] = overview.data?.warnings ?? []
   // Older cached visitor data lacks the daily and comparison figures
   const v = visitors.data?.dailySessions ? visitors.data : null
@@ -219,18 +209,8 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
             )}
             <h1 className="font-serif text-[28px] sm:text-[40px] leading-[1.05] font-semibold tracking-tight">{club?.name ?? 'Your club'}</h1>
           </div>
-          {/* Golf / Clubhouse switch */}
-          <div role="group" aria-label="Show results for" className="mt-4 sm:mt-5 inline-flex p-1 rounded-xl bg-white/10 border border-white/15 print:hidden">
-            {AREAS.map((a) => (
-              <button key={a.value} type="button" onClick={() => setArea(a.value)} aria-pressed={area === a.value}
-                className={`px-3.5 sm:px-4 py-1.5 rounded-lg text-[13px] sm:text-sm font-medium transition-colors ${area === a.value
-                  ? 'bg-white text-pgm-green shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>
-                {a.label}
-              </button>
-            ))}
-          </div>
           <p className="text-white/75 text-[14px] sm:text-[15px] mt-3 sm:mt-4">
-            {area === 'golf' ? 'Golf marketing results' : area === 'clubhouse' ? 'Clubhouse marketing results' : 'Marketing results'} for {range.from && range.to ? `${longDate(range.from)} to ${longDate(range.to)}` : `the last ${range.days} days`},
+            Marketing results for {range.from && range.to ? `${longDate(range.from)} to ${longDate(range.to)}` : `the last ${range.days} days`},
             compared with {compareName}.
             <span className="text-white/50"> Prepared by Pure Golf Media.</span>
           </p>
@@ -302,9 +282,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
       {/* Website */}
       {websiteOn ? (
         <Section icon="website" id="website" tinted title="Your website"
-          intro={area === 'all'
-            ? 'Who visited the website, where they came from, what they used, and which pages brought them in. From Google Analytics.'
-            : `Visits that started on a ${area} page (${area === 'golf' ? 'membership, green fees, societies, the course…' : 'Christmas, functions, weddings, dining…'}), where they came from and what they led to. Visits that started on the home page only count under Whole club.`}>
+          intro="Who visited the website, where they came from, what they used, and which pages brought them in. From Google Analytics.">
           {overview.error ? <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">{overview.error}</p> : loading ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
               {[2, 1, 2, 1].map((span, i) => (
@@ -335,14 +313,14 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
       {/* Email */}
       {emailOn ? (
         <Section icon="email" id="email" title="Email marketing"
-          intro={`Every ${area === 'all' ? '' : `${area} `}email sent${emailSince ? ` since ${longDate(emailSince)}` : ' in the last 90 days'}, how many people opened it, and how many clicked a link.${area === 'all' ? '' : ` Emails count as ${area} when their name mentions it.`} This section isn’t affected by the dates chosen above.`}>
+          intro={`Every email sent${emailSince ? ` since ${longDate(emailSince)}` : ' in the last 90 days'}, how many people opened it, and how many clicked a link. This section isn’t affected by the dates chosen above.`}>
           <EmailCampaigns data={email.data} loading={emailLoading} error={email.error} />
         </Section>
       ) : isAdmin && <p className="text-xs text-gray-400">Email (Mailchimp) isn’t connected for this club yet.</p>}
 
       {/* Google search */}
       {searchOn ? (
-        <Section icon="search" id="google" tinted title="Google search" intro={`How your website${area === 'all' ? '' : `’s ${area} pages`} show${area === 'all' ? 's' : ''} up when people search on Google (not paid ads). Google’s figures run about two days behind.`}>
+        <Section icon="search" id="google" tinted title="Google search" intro={`How your website shows up when people search on Google (not paid ads). Google’s figures run about two days behind.`}>
           {seo.error ? <p className="text-sm text-gray-400 bg-white border border-pgm-line rounded-xl p-5">{seo.error}</p> : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -363,7 +341,7 @@ export default function ClubDashboard({ clientId, isAdmin }: { clientId: string 
 
       {/* Ads */}
       {adsOn ? (
-        <Section icon="ads" id="ads" title="Facebook & Instagram ads" intro={`What was spent on ads, how often they were seen and clicked, and what they brought back.${area === 'all' ? '' : ` Only campaigns with “${area}” (or a ${area} word) in their name are counted here.`}`}>
+        <Section icon="ads" id="ads" title="Facebook & Instagram ads" intro="What was spent on ads, how often they were seen and clicked, and what they brought back.">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <MetricCard label="Times shown" help="How many times your ads appeared on screen." value={paid.data.metrics.impressions.value} change={paid.data.metrics.impressions.change} changePeriod={cmp} loading={loading} />
             <MetricCard label="Ad clicks" help="How many times people clicked your ads." value={paid.data.metrics.clicks.value} change={paid.data.metrics.clicks.change} changePeriod={cmp} loading={loading} />
