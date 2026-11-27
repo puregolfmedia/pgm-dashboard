@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { flatten, parseEnquiry } from '@/lib/intake'
 import { createEnquiry, parseType } from '@/lib/crm'
 import { piiReady } from '@/lib/pii'
+import { allowRequest, requesterKey } from '@/lib/rateLimit'
 
 // Public endpoint that website forms post enquiries to:
 //   POST /api/intake/<club's secret token>?category=Christmas%20party&type=FUNCTION
@@ -28,6 +29,11 @@ export async function POST(request: Request, { params }: { params: { token: stri
     ? await prisma.client.findUnique({ where: { intakeToken: params.token }, select: { id: true } })
     : null
   if (!client) return NextResponse.json({ ok: false, error: 'Unknown form address' }, { status: 404, headers: CORS })
+
+  // At most 30 enquiries an hour from one connection to one club's address
+  if (!(await allowRequest(requesterKey(request, `intake:${client.id}`), 30, 60 * 60 * 1000))) {
+    return NextResponse.json({ ok: false, error: 'Too many enquiries. Try again later.' }, { status: 429, headers: CORS })
+  }
 
   const raw = await request.text()
   if (raw.length > MAX_BODY) return NextResponse.json({ ok: false, error: 'Too large' }, { status: 413, headers: CORS })
