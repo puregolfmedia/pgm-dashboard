@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { createEnquiry } from '@/lib/crm'
 
 /** Sample enquiries, goals and notes for a new demo club. */
 export async function seedDemoClub(clientId: string) {
@@ -7,21 +8,29 @@ export async function seedDemoClub(clientId: string) {
     ['Sarah Mitchell', 'Christmas party', 'Fri 12 Dec', 'BOOKED', 2400],
     ['James Carter', 'Christmas party', 'Sat 13 Dec', 'BOOKED', 1850],
     ['Priya Shah', 'Christmas party', 'Thu 18 Dec', 'CONTACTED', null],
-    ['Tom Reed', 'Wedding', 'June 2027', 'CONTACTED', null],
+    ['Tom Reed', 'Wedding', 'June 2027', 'TOUR_BOOKED', null],
     ['Emma Lawson', 'Christmas lunch', 'Sun 21 Dec', 'BOOKED', 640],
-    ['Dan Hughes', 'Christmas party', 'Fri 19 Dec', 'NEW', null],
-    ['Lucy Brennan', 'Sunday lunch', 'This Sunday', 'BOOKED', 180],
+    ['Dan Hughes', 'Membership', null, 'NEW', null],
+    ['Lucy Brennan', 'Membership', null, 'BOOKED', 1450],
     ['Mark Ellis', 'Christmas party', 'Sat 6 Dec', 'LOST', null],
-    ['Hannah Cole', 'Christmas party', 'Fri 5 Dec', 'NEW', null],
+    ['Hannah Cole', 'Golf society day', 'March 2027', 'NEW', null],
   ] as const
-  await prisma.enquiry.createMany({
-    data: people.map(([name, category, eventDate, status, value], i) => ({
-      clientId, source: i % 3 === 2 ? 'manual' : 'form', receivedAt: daysAgo(2 + i * 3),
-      name, email: `${name.split(' ')[0].toLowerCase()}@example.com`, category, eventDate,
+  for (let i = 0; i < people.length; i++) {
+    const [name, category, eventDate, status, value] = people[i]
+    const enquiry = await createEnquiry({
+      clientId, name, email: `${name.split(' ')[0].toLowerCase()}@example.com`, category, eventDate,
       message: category === 'Christmas party' ? `Party of ${20 + i * 5}, looking at the buffet package.` : null,
-      status, bookedValue: value, bookedAt: status === 'BOOKED' ? daysAgo(1 + i * 3) : null,
-    })),
-  })
+      source: i % 3 === 2 ? 'manual' : 'website_form', sourceDetail: category,
+      utmSource: i % 2 ? 'facebook' : 'google', receivedAt: daysAgo(2 + i * 3),
+      marketingConsent: i % 2 === 0,
+    })
+    if (status !== 'NEW') {
+      await prisma.enquiry.update({
+        where: { id: enquiry.id },
+        data: { status, stageChangedAt: daysAgo(1 + i * 3), bookedValue: value, bookedAt: status === 'BOOKED' ? daysAgo(1 + i * 3) : null },
+      })
+    }
+  }
   const deadline = new Date(); deadline.setDate(deadline.getDate() + 24)
   await prisma.goal.createMany({
     data: [

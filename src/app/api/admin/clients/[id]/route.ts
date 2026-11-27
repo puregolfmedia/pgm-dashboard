@@ -50,6 +50,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (typeof newPassword !== 'string' || newPassword.length < 8) {
       return NextResponse.json({ data: null, error: 'Use at least 8 characters.' }, { status: 400 })
     }
+    // With one login per person, passwords are set per login (Admin → Logins)
+    if ((await prisma.user.count({ where: { clientId: params.id, role: 'CLIENT' } })) > 1) {
+      return NextResponse.json({ data: null, error: 'This club has several logins; set each person’s password under Logins.' }, { status: 400 })
+    }
     const passwordHash = await bcrypt.hash(newPassword, 12)
     const result = await prisma.user.updateMany({
       where: { clientId: params.id, role: 'CLIENT' },

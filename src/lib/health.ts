@@ -84,8 +84,8 @@ export async function getClientHealth(clientId: string, { fresh = false } = {}):
   const since14 = new Date(); since14.setDate(since14.getDate() - 14)
   const [enq30, formRecent, formBefore] = await Promise.all([
     prisma.enquiry.findMany({ where: { clientId, receivedAt: { gte: since30 } }, select: { status: true, bookedValue: true } }),
-    prisma.enquiry.count({ where: { clientId, source: 'form', receivedAt: { gte: since14 } } }),
-    prisma.enquiry.count({ where: { clientId, source: 'form', receivedAt: { lt: since14, gte: since30 } } }),
+    prisma.enquiry.count({ where: { clientId, source: 'website_form', receivedAt: { gte: since14 } } }),
+    prisma.enquiry.count({ where: { clientId, source: 'website_form', receivedAt: { lt: since14, gte: since30 } } }),
   ])
   const booked = enq30.filter((e) => e.status === 'BOOKED')
   const stats: ClientHealth['stats'] = {

@@ -1,41 +1,37 @@
-interface Attempt {
-  count: number
-  blockedUntil: number | null
-}
+import { prisma } from '@/lib/prisma'
 
-const store = new Map<string, Attempt>()
+// Failed sign-ins are counted in the database, so the limit holds however many
+// servers Vercel runs: 5 failures in 15 minutes locks that username for 15 minutes.
 
 const MAX_ATTEMPTS = 5
-const WINDOW_MS = 15 * 60 * 1000  // 15 minutes
-const BLOCK_MS = 15 * 60 * 1000   // block for 15 minutes after max failures
+const WINDOW_MS = 15 * 60 * 1000
+const BLOCK_MS = 15 * 60 * 1000
 
-export function checkLoginRateLimit(key: string): { allowed: boolean; retriesLeft: number } {
-  const now = Date.now()
-  const entry = store.get(key) ?? { count: 0, blockedUntil: null }
+const keyFor = (username: string) => `login:${username.trim().toLowerCase()}`
 
-  if (entry.blockedUntil && now < entry.blockedUntil) {
-    return { allowed: false, retriesLeft: 0 }
-  }
-
-  if (entry.blockedUntil && now >= entry.blockedUntil) {
-    store.delete(key)
-    return { allowed: true, retriesLeft: MAX_ATTEMPTS }
-  }
-
-  return { allowed: true, retriesLeft: MAX_ATTEMPTS - entry.count }
+export async function checkLoginRateLimit(username: string): Promise<{ allowed: boolean }> {
+  const row = await prisma.loginAttempt.findUnique({ where: { key: keyFor(username) } })
+  return { allowed: !(row?.blockedUntil && row.blockedUntil > new Date()) }
 }
 
-export function recordLoginFailure(key: string): void {
-  const entry = store.get(key) ?? { count: 0, blockedUntil: null }
-  const count = entry.count + 1
-  store.set(key, {
-    count,
-    blockedUntil: count >= MAX_ATTEMPTS ? Date.now() + BLOCK_MS : null,
+export async function recordLoginFailure(username: string): Promise<void> {
+  const key = keyFor(username)
+  const now = new Date()
+  const row = await prisma.loginAttempt.findUnique({ where: { key } })
+  // Start counting again once the window or a block has passed
+  const fresh = !row || now.getTime() - row.firstFailedAt.getTime() > WINDOW_MS || (row.blockedUntil && row.blockedUntil <= now)
+  const failures = fresh ? 1 : row!.failures + 1
+  await prisma.loginAttempt.upsert({
+    where: { key },
+    create: { key, failures: 1, firstFailedAt: now },
+    update: {
+      failures,
+      ...(fresh && { firstFailedAt: now, blockedUntil: null }),
+      ...(failures >= MAX_ATTEMPTS && { blockedUntil: new Date(now.getTime() + BLOCK_MS) }),
+    },
   })
-  // Auto-clean after window
-  setTimeout(() => store.delete(key), WINDOW_MS)
 }
 
-export function clearLoginFailures(key: string): void {
-  store.delete(key)
+export async function clearLoginFailures(username: string): Promise<void> {
+  await prisma.loginAttempt.deleteMany({ where: { key: keyFor(username) } })
 }

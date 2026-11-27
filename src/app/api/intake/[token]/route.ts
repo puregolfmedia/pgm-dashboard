@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { flatten, parseEnquiry } from '@/lib/intake'
+import { createEnquiry, parseType } from '@/lib/crm'
+import { piiReady } from '@/lib/pii'
 
 // Public endpoint that website forms post enquiries to:
-//   POST /api/intake/<club's secret token>?category=Christmas%20party
+//   POST /api/intake/<club's secret token>?category=Christmas%20party&type=FUNCTION
 // Accepts JSON (e.g. a FormSubmit `_webhook`) or a normal HTML form post.
+// Optional fields: enquiry_type, utm_source / utm_medium / utm_campaign,
+// marketing_consent (a ticked box) and form_name.
 // The token is the only credential, so it is long and random, and can be
 // regenerated from the admin panel if it leaks.
 
@@ -51,9 +55,27 @@ export async function POST(request: Request, { params }: { params: { token: stri
     return NextResponse.json({ ok: false, error: 'Empty enquiry' }, { status: 400, headers: CORS })
   }
 
-  const category = new URL(request.url).searchParams.get('category')?.slice(0, 100) || parsed.category
-  await prisma.enquiry.create({
-    data: { clientId: client.id, source: 'form', ...parsed, category },
+  // Personal details are only ever stored encrypted; without the keys, refuse rather than store plain text
+  if (!piiReady()) {
+    console.error('[intake] PII keys missing: enquiry not stored')
+    return NextResponse.json({ ok: false, error: 'Enquiries are temporarily unavailable' }, { status: 503, headers: CORS })
+  }
+
+  const query = new URL(request.url).searchParams
+  const category = query.get('category')?.slice(0, 100) || parsed.category
+  const ticked = (v?: string) => !!v && /^(1|true|yes|on|y)$/i.test(v.trim())
+  await createEnquiry({
+    clientId: client.id,
+    name: parsed.name, email: parsed.email, phone: parsed.phone, message: parsed.message, eventDate: parsed.eventDate,
+    category,
+    type: parseType(query.get('type')?.toUpperCase()) ?? parseType(fields.enquiry_type?.toUpperCase()),
+    source: 'website_form',
+    sourceDetail: fields.form_name || query.get('form') || category,
+    utmSource: fields.utm_source || query.get('utm_source'),
+    utmMedium: fields.utm_medium || query.get('utm_medium'),
+    utmCampaign: fields.utm_campaign || query.get('utm_campaign'),
+    marketingConsent: ticked(fields.marketing_consent ?? fields.consent),
+    consentWording: fields.consent_wording,
   })
   return done()
 }
