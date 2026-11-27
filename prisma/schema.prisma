@@ -15,6 +15,8 @@ model User {
   clientId              String?
   client                Client?   @relation(fields: [clientId], references: [id])
   passwordResetRequired Boolean   @default(false)
+  // The person's name, shown against their changes in the enquiry history
+  displayName           String?
   lastLoginAt           DateTime?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -47,6 +49,9 @@ model Client {
   membershipTarget     Float?
   membershipTargetDate DateTime?
   enquiries   Enquiry[]
+  contacts    Contact[]
+  crmSettings CrmSettings?
+  alertRecipients AlertRecipient[]
   goals       Goal[]
   notes       Note[]
   membershipValues MembershipValue[]
@@ -67,32 +72,169 @@ model MembershipValue {
 
 // ─── Enquiries, goals and work notes ─────────────────────────────────────────
 
+// Pipeline stage. BOOKED is the "won" stage: shown as "Joined" for membership
+// enquiries and "Booked" for everything else.
 enum EnquiryStatus {
   NEW
   CONTACTED
+  TOUR_BOOKED
   BOOKED
   LOST
 }
 
+enum EnquiryType {
+  MEMBERSHIP
+  WEDDING
+  SOCIETY
+  DRIVING_RANGE
+  FUNCTION
+  GENERAL
+}
+
+// One person at one club. Personal details are encrypted in the app before they
+// reach the database (see src/lib/pii.ts); the hashes find repeat enquirers and
+// deletion requests without decrypting anything.
+model Contact {
+  id               String    @id @default(cuid())
+  clientId         String
+  client           Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  nameEnc          String?
+  emailEnc         String?
+  phoneEnc         String?
+  emailHash        String?
+  phoneHash        String?
+  // Proof of opt-in to marketing emails (needed before adding them to Mailchimp)
+  marketingConsent Boolean   @default(false)
+  consentAt        DateTime?
+  consentWording   String?
+  lastActivityAt   DateTime  @default(now())
+  anonymisedAt     DateTime?
+  createdAt        DateTime  @default(now())
+  enquiries        Enquiry[]
+
+  @@unique([clientId, emailHash])
+  @@index([clientId, phoneHash])
+  @@index([lastActivityAt])
+  // An older, unused "Contact" table (LinkedIn prospecting) still exists in the database
+  @@map("ClubContact")
+}
+
 model Enquiry {
-  id          String        @id @default(cuid())
-  clientId    String
-  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  receivedAt  DateTime      @default(now())
-  source      String        @default("manual") // "form" or "manual"
-  category    String?       // e.g. "Christmas party"
-  name        String?
-  email       String?
-  phone       String?
-  eventDate   String?       // as the person wrote it
-  message     String?
-  status      EnquiryStatus @default(NEW)
-  bookedValue Float?        // £, when booked
-  bookedAt    DateTime?
-  staffNotes  String?
-  updatedAt   DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  clientId       String
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contactId      String?
+  contact        Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  receivedAt     DateTime      @default(now())
+  type           EnquiryType   @default(GENERAL)
+  // website_form | facebook_lead | instagram_lead | phone | walk_in | email | manual
+  source         String        @default("manual")
+  sourceDetail   String?       // e.g. which form or campaign
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  category       String?       // finer detail, e.g. "Christmas party"
+  eventDate      String?       // as the person wrote it
+  messageEnc     String?
+  staffNotesEnc  String?
+  status         EnquiryStatus @default(NEW)
+  stageChangedAt DateTime?
+  bookedValue    Float?        // £ value when won (membership fee or booking value)
+  bookedAt       DateTime?     // when it was won
+  lostReason     String?
+  anonymisedAt   DateTime?
+  updatedAt      DateTime      @updatedAt
+  events         EnquiryEvent[]
+  jobs           OutboundJob[]
+
+  // Old plain-text fields. New code never writes them; existing rows are moved
+  // into the encrypted fields automatically (src/lib/crm.ts) and then cleared.
+  name           String?
+  email          String?
+  phone          String?
+  message        String?
+  staffNotes     String?
 
   @@index([clientId, receivedAt])
+  @@index([clientId, status])
+  @@index([contactId])
+}
+
+// History of an enquiry: created, stage changes, notes, sends. No personal details.
+model EnquiryEvent {
+  id          String   @id @default(cuid())
+  enquiryId   String
+  enquiry     Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  clientId    String
+  at          DateTime @default(now())
+  actorUserId String?  // null = the system
+  actorName   String?
+  kind        String   // created | stage | note | value | type | mailchimp | whatsapp
+  fromValue   String?
+  toValue     String?
+  detail      String?
+
+  @@index([enquiryId, at])
+  @@index([clientId, at])
+}
+
+// Sends to Mailchimp and WhatsApp, kept until they succeed so nothing is lost
+model OutboundJob {
+  id            String    @id @default(cuid())
+  clientId      String
+  enquiryId     String?
+  enquiry       Enquiry?  @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  channel       String    // mailchimp | whatsapp
+  recipientId   String?   // AlertRecipient for WhatsApp
+  status        String    @default("pending") // pending | sent | failed
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  lastError     String?
+  providerRef   String?
+  createdAt     DateTime  @default(now())
+  sentAt        DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([enquiryId])
+}
+
+// Per-club CRM settings
+model CrmSettings {
+  id                   String   @id @default(cuid())
+  clientId             String   @unique
+  client               Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  enabled              Boolean  @default(false)
+  mailchimpSyncEnabled Boolean  @default(false)
+  mailchimpAudienceId  String?  // defaults to the reporting list
+  mailchimpTags        Json?    // { "MEMBERSHIP": "Enquiry – Membership", ... }
+  whatsappEnabled      Boolean  @default(false)
+  alertIncludesPhone   Boolean  @default(false)
+  retentionMonths      Int      @default(24)
+  updatedAt            DateTime @updatedAt
+}
+
+// Club staff who get a WhatsApp alert for new enquiries
+model AlertRecipient {
+  id                 String        @id @default(cuid())
+  clientId           String
+  client             Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name               String
+  phoneEnc           String
+  phoneLast4         String
+  types              EnquiryType[] // empty = every type
+  active             Boolean       @default(true)
+  consentConfirmedAt DateTime?
+  createdAt          DateTime      @default(now())
+
+  @@index([clientId])
+}
+
+// Failed sign-ins, kept in the database so the limit holds across servers
+model LoginAttempt {
+  key           String    @id
+  failures      Int       @default(0)
+  firstFailedAt DateTime  @default(now())
+  blockedUntil  DateTime?
 }
 
 enum GoalMetric {

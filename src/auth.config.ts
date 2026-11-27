@@ -3,7 +3,8 @@ import type { NextAuthConfig } from 'next-auth'
 // Edge-compatible auth config — no Node.js built-ins, no DB imports.
 // Used by middleware to validate JWT sessions without touching Prisma/pg.
 export const authConfig: NextAuthConfig = {
-  session: { strategy: 'jwt' },
+  // Sign-ins last 24 hours: the dashboard now holds enquirers' personal details
+  session: { strategy: 'jwt', maxAge: 24 * 60 * 60 },
   pages: { signIn: '/login' },
   providers: [],
   callbacks: {

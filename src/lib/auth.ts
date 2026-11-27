@@ -1,9 +1,14 @@
-import NextAuth from 'next-auth'
+import NextAuth, { CredentialsSignin } from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 import { authConfig } from '@/auth.config'
 import { checkLoginRateLimit, recordLoginFailure, clearLoginFailures } from './rateLimit'
+
+// Lets the login page say why, instead of a generic error
+class TooManyAttempts extends CredentialsSignin {
+  code = 'too_many_attempts'
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -17,25 +22,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!credentials?.username || !credentials?.password) return null
 
         const username = credentials.username as string
-        const { allowed } = checkLoginRateLimit(username)
+        const { allowed } = await checkLoginRateLimit(username)
 
         if (!allowed) {
-          throw new Error('Too many failed attempts. Try again in 15 minutes.')
+          throw new TooManyAttempts()
         }
 
         const user = await prisma.user.findUnique({ where: { username } })
         if (!user) {
-          recordLoginFailure(username)
+          await recordLoginFailure(username)
           return null
         }
 
         const valid = await bcrypt.compare(credentials.password as string, user.passwordHash)
         if (!valid) {
-          recordLoginFailure(username)
+          await recordLoginFailure(username)
           return null
         }
 
-        clearLoginFailures(username)
+        await clearLoginFailures(username)
 
         await prisma.user.update({
           where: { id: user.id },

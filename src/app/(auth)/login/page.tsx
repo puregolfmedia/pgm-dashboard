@@ -32,7 +32,9 @@ function LoginForm() {
     setLoading(false)
 
     if (result?.error) {
-      setError('Incorrect username or password.')
+      setError(result.code === 'too_many_attempts'
+        ? 'Too many wrong passwords for this username. Wait 15 minutes, then try again.'
+        : 'Incorrect username or password.')
       return
     }
 

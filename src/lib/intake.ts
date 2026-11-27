@@ -35,8 +35,10 @@ export function parseEnquiry(fields: Record<string, string>) {
   const message = find((k) => ['message', 'details', 'comments', 'notes', 'enquiry', 'description'].includes(k))
 
   // Keep any other answers (party size, budget…) so nothing the person wrote is lost
+  // Fields the CRM reads separately aren't repeated in the message
+  const SEPARATE = ['enquiry_type', 'utm_source', 'utm_medium', 'utm_campaign', 'marketing_consent', 'consent', 'consent_wording', 'form_name']
   const extras = Object.entries(fields)
-    .filter(([k]) => !used.has(k) && !k.startsWith('_'))
+    .filter(([k]) => !used.has(k) && !k.startsWith('_') && !SEPARATE.includes(k))
     .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
 
   return {

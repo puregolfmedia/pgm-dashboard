@@ -7,10 +7,12 @@ import Input from '@/components/ui/Input'
 // The enquiries list: add phone/walk-in enquiries, set each one's status and,
 // once booked, its value. Data comes from the parent; onChanged reloads it.
 
-const STATUS_LABEL: Record<string, string> = { NEW: 'New', CONTACTED: 'Contacted', BOOKED: 'Booked', LOST: 'Not going ahead' }
+// The full pipeline page (list and board) replaces this in CRM step 3
+const STATUS_LABEL: Record<string, string> = { NEW: 'New', CONTACTED: 'Contacted', TOUR_BOOKED: 'Tour / viewing booked', BOOKED: 'Joined / booked', LOST: 'Not going ahead' }
 const STATUS_STYLE: Record<string, string> = {
   NEW: 'bg-blue-50 text-blue-700 border-blue-100',
   CONTACTED: 'bg-amber-50 text-amber-700 border-amber-100',
+  TOUR_BOOKED: 'bg-purple-50 text-purple-700 border-purple-100',
   BOOKED: 'bg-green-50 text-green-700 border-green-100',
   LOST: 'bg-gray-50 text-gray-500 border-gray-200',
 }
