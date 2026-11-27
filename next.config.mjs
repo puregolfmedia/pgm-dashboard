@@ -9,7 +9,7 @@ const nextConfig = {
   // The dashboard used to have a tab per area; it's now one page per club.
   // Old links and bookmarks go to it (the ?viewAs= query is kept).
   async redirects() {
-    return ['enquiries', 'visitors', 'membership', 'email', 'paid-social', 'pages', 'utms', 'seo', 'report']
+    return ['visitors', 'membership', 'email', 'paid-social', 'pages', 'utms', 'seo', 'report']
       .map((tab) => ({ source: `/dashboard/${tab}`, destination: '/dashboard', permanent: false }))
   },
   eslint: { ignoreDuringBuilds: true },
