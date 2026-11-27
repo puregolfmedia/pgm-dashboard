@@ -210,6 +210,10 @@ model CrmSettings {
   whatsappEnabled      Boolean  @default(false)
   alertIncludesPhone   Boolean  @default(false)
   retentionMonths      Int      @default(24)
+  // Hosted enquiry forms (/enquire/<club slug>/<form>): which ones the club offers,
+  // and the club's privacy policy, linked under each form
+  formTypes            EnquiryType[] @default([MEMBERSHIP, WEDDING, SOCIETY, DRIVING_RANGE, FUNCTION, GENERAL])
+  privacyPolicyUrl     String?
   updatedAt            DateTime @updatedAt
 }
 

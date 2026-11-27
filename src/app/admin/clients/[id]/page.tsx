@@ -8,6 +8,7 @@ import Input from '@/components/ui/Input'
 import Link from 'next/link'
 import ClientExtrasAdmin from './ClientExtrasAdmin'
 import ClubLogins from './ClubLogins'
+import EnquiryForms from './EnquiryForms'
 import ClientHealthBanner from '@/components/admin/ClientHealthBanner'
 
 export default function EditClientPage() {
@@ -375,6 +376,8 @@ export default function EditClientPage() {
         </form>
 
         <ClientExtrasAdmin clientId={id} intakeToken={client.intakeToken ?? null} />
+
+        <EnquiryForms clientId={id} />
 
         <ClubLogins clientId={id} />
       </div>
