@@ -245,3 +245,75 @@ export async function actorFromSession(user: { id?: string; username?: string } 
   const u = await prisma.user.findUnique({ where: { id: user.id }, select: { displayName: true, username: true } })
   return { id: user.id, name: u?.displayName || u?.username || user.username || null }
 }
+
+// ─── Retention and erasure ───────────────────────────────────────────────────
+// Personal details are removed, but the enquiry itself (type, source, stage,
+// dates, value) stays, so the club's figures don't change.
+
+/** Remove a person's details and the free text on all their enquiries at this club. */
+export async function anonymiseContact(tx: any, contactId: string, actor: Actor, reason: string) {
+  const now = new Date()
+  const contact = await tx.contact.update({
+    where: { id: contactId },
+    data: {
+      nameEnc: null, emailEnc: null, phoneEnc: null, emailHash: null, phoneHash: null,
+      marketingConsent: false, consentAt: null, consentWording: null, anonymisedAt: now,
+    },
+  })
+  const enquiries = await tx.enquiry.findMany({ where: { contactId }, select: { id: true } })
+  for (const e of enquiries) {
+    await anonymiseEnquiry(tx, { id: e.id, clientId: contact.clientId }, actor, reason, now)
+  }
+  return enquiries.length
+}
+
+/** Remove the free text (message, notes) from one enquiry. */
+export async function anonymiseEnquiry(tx: any, e: { id: string; clientId: string }, actor: Actor, reason: string, now = new Date()) {
+  await tx.enquiry.update({
+    where: { id: e.id },
+    data: { messageEnc: null, staffNotesEnc: null, name: null, email: null, phone: null, message: null, staffNotes: null, anonymisedAt: now },
+  })
+  await logEvent(tx, { enquiryId: e.id, clientId: e.clientId }, actor, 'anonymised', null, null, reason)
+}
+
+const lastRetentionRun = new Map<string, number>()
+
+/**
+ * Remove the details of anyone with no activity for the club's retention period
+ * (24 months unless set otherwise). Runs when the enquiries list is opened, at
+ * most every few hours per club. Each person is handled on their own, so one
+ * failure doesn't stop the rest.
+ */
+export async function applyRetention(clientId: string): Promise<number> {
+  const last = lastRetentionRun.get(clientId)
+  if (last && Date.now() - last < 6 * 60 * 60 * 1000) return 0
+  lastRetentionRun.set(clientId, Date.now())
+
+  const settings = await prisma.crmSettings.findUnique({ where: { clientId }, select: { retentionMonths: true } })
+  const months = settings?.retentionMonths ?? 24
+  const cutoff = new Date()
+  cutoff.setMonth(cutoff.getMonth() - months)
+  const reason = `Details removed automatically after ${months} months with no activity`
+
+  let done = 0
+  const contacts = await prisma.contact.findMany({
+    where: { clientId, anonymisedAt: null, lastActivityAt: { lt: cutoff } }, select: { id: true }, take: 200,
+  })
+  for (const c of contacts) {
+    try {
+      await prisma.$transaction((tx) => anonymiseContact(tx, c.id, SYSTEM, reason))
+      done++
+    } catch (err) { console.error('[crm] retention skipped contact', c.id, err) }
+  }
+  // Enquiries with no person attached, by the date they came in
+  const loose = await prisma.enquiry.findMany({
+    where: { clientId, contactId: null, anonymisedAt: null, receivedAt: { lt: cutoff } }, select: { id: true }, take: 200,
+  })
+  for (const e of loose) {
+    try {
+      await prisma.$transaction((tx) => anonymiseEnquiry(tx, { id: e.id, clientId }, SYSTEM, reason))
+      done++
+    } catch (err) { console.error('[crm] retention skipped enquiry', e.id, err) }
+  }
+  return done
+}

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { resolveClientAccess } from '@/lib/access'
 import { rangeFromParams } from '@/lib/dateRange'
-import { createEnquiry, secureLegacyEnquiries, toView, parseType, actorFromSession, STATUSES, SOURCES, type Source } from '@/lib/crm'
+import { createEnquiry, secureLegacyEnquiries, applyRetention, toView, parseType, actorFromSession, STATUSES, SOURCES, type Source } from '@/lib/crm'
 import { piiReady } from '@/lib/pii'
 
 // List a club's enquiries (with a summary) and add one by hand.
@@ -16,6 +16,8 @@ export async function GET(request: Request) {
 
   // Older plain-text enquiries are encrypted the first time the list is opened
   await secureLegacyEnquiries(access.clientId)
+  // …and anyone past the club's retention period has their details removed
+  await applyRetention(access.clientId)
 
   const url = new URL(request.url)
   const range = rangeFromParams(url.searchParams)
@@ -48,7 +50,25 @@ export async function GET(request: Request) {
       distinct: ['category'],
     }),
   ])
-  const enquiries = rows.map(toView)
+  // How far each enquiry has got (Lost hides that, so use its history), and when it was first followed up
+  const ORDER = ['NEW', 'CONTACTED', 'TOUR_BOOKED', 'BOOKED']
+  const moves = rows.length ? await prisma.enquiryEvent.findMany({
+    where: { enquiryId: { in: rows.map((r) => r.id) }, kind: 'stage' },
+    select: { enquiryId: true, fromValue: true, toValue: true, at: true },
+    orderBy: { at: 'asc' },
+  }) : []
+  const progress = new Map<string, { reached: number; firstMovedAt: Date | null }>()
+  for (const m of moves) {
+    const p = progress.get(m.enquiryId) ?? { reached: 0, firstMovedAt: null }
+    p.reached = Math.max(p.reached, ORDER.indexOf(m.toValue ?? ''), ORDER.indexOf(m.fromValue ?? ''))
+    if (!p.firstMovedAt && m.fromValue === 'NEW') p.firstMovedAt = m.at
+    progress.set(m.enquiryId, p)
+  }
+  const enquiries = rows.map((r) => {
+    const v = toView(r)
+    const p = progress.get(r.id)
+    return { ...v, reached: Math.max(p?.reached ?? 0, ORDER.indexOf(v.status)), firstMovedAt: p?.firstMovedAt ?? null }
+  })
   const won = enquiries.filter((e) => e.status === 'BOOKED')
   const prevWon = previous.filter((e) => e.status === 'BOOKED')
 
