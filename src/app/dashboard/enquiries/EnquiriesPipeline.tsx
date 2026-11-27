@@ -9,6 +9,7 @@ import Icon from '@/components/ui/Icon'
 // with a panel to follow each one from New to Joined / Booked.
 
 type Status = 'NEW' | 'CONTACTED' | 'TOUR_BOOKED' | 'BOOKED' | 'LOST'
+type View = 'board' | 'list' | 'results'
 type Type = 'MEMBERSHIP' | 'WEDDING' | 'SOCIETY' | 'DRIVING_RANGE' | 'FUNCTION' | 'GENERAL'
 
 const STAGES: { value: Status; label: string; dot: string }[] = [
@@ -43,7 +44,7 @@ function ago(d: string) {
 }
 
 export default function EnquiriesPipeline({ clientId, isAdmin }: { clientId: string | null; isAdmin: boolean }) {
-  const [view, setView] = useState<'board' | 'list'>('board')
+  const [view, setView] = useState<View>('board')
   const [days, setDays] = useState(90)
   const [stage, setStage] = useState<'ALL' | Status>('ALL')
   const [type, setType] = useState<'ALL' | Type>('ALL')
@@ -56,8 +57,8 @@ export default function EnquiriesPipeline({ clientId, isAdmin }: { clientId: str
   const [adding, setAdding] = useState(false)
 
   // Remember the chosen view on this device
-  useEffect(() => { try { const v = localStorage.getItem('pgm-enquiries-view'); if (v === 'list' || v === 'board') setView(v) } catch { /* ignore */ } }, [])
-  const chooseView = (v: 'board' | 'list') => { setView(v); try { localStorage.setItem('pgm-enquiries-view', v) } catch { /* ignore */ } }
+  useEffect(() => { try { const v = localStorage.getItem('pgm-enquiries-view'); if (v === 'list' || v === 'board' || v === 'results') setView(v) } catch { /* ignore */ } }, [])
+  const chooseView = (v: View) => { setView(v); try { localStorage.setItem('pgm-enquiries-view', v) } catch { /* ignore */ } }
 
   const load = useCallback(async () => {
     if (!clientId) return
@@ -110,10 +111,10 @@ export default function EnquiriesPipeline({ clientId, isAdmin }: { clientId: str
         </div>
         <div className="flex items-center gap-2">
           <div role="group" aria-label="View" className="inline-flex p-0.5 bg-white border border-pgm-line rounded-lg">
-            {(['board', 'list'] as const).map((v) => (
+            {(['board', 'list', 'results'] as const).map((v) => (
               <button key={v} type="button" onClick={() => chooseView(v)} aria-pressed={view === v}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium ${view === v ? 'bg-pgm-green text-white' : 'text-gray-500 hover:text-pgm-green'}`}>
-                {v === 'board' ? 'Board' : 'List'}
+                {v === 'board' ? 'Board' : v === 'list' ? 'List' : 'Results'}
               </button>
             ))}
           </div>
@@ -155,6 +156,8 @@ export default function EnquiriesPipeline({ clientId, isAdmin }: { clientId: str
           <p className="font-serif text-xl text-pgm-ink mt-3">No enquiries for these dates</p>
           <p className="text-sm text-gray-500 mt-1">Website form enquiries arrive here automatically. Add phone and walk-in enquiries with “Add enquiry”.</p>
         </div>
+      ) : view === 'results' ? (
+        <Results rows={rows} />
       ) : view === 'board' ? (
         <Board rows={rows} onOpen={setOpenId} onMove={moveTo} />
       ) : (
@@ -204,7 +207,7 @@ function Board({ rows, onOpen, onMove }: { rows: any[]; onOpen: (id: string) => 
                 <li key={e.id}>
                   <button type="button" draggable onDragStart={(ev) => ev.dataTransfer.setData('text/plain', e.id)} onClick={() => onOpen(e.id)}
                     className="w-full text-left bg-white border border-pgm-line rounded-lg px-3 py-2.5 hover:border-pgm-green/50 hover:shadow-sm transition cursor-grab active:cursor-grabbing">
-                    <span className="block text-sm font-medium text-pgm-ink truncate">{e.name || e.email || e.phone || 'No name given'}</span>
+                    <span className="block text-sm font-medium text-pgm-ink truncate">{e.name || e.email || e.phone || (e.anonymised ? 'Details removed' : 'No name given')}</span>
                     <span className="flex items-center gap-2 mt-1.5 flex-wrap">
                       <TypeChip type={e.type} />
                       {e.status === 'BOOKED' && e.bookedValue ? <span className="text-[11px] font-semibold text-[#1E7A45]">{gbp(e.bookedValue)}</span> : null}
@@ -240,7 +243,7 @@ function List({ rows, onOpen }: { rows: any[]; onOpen: (id: string) => void }) {
                 <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{day(e.receivedAt)}</td>
                 <td className="px-4 py-3">
                   <button type="button" className="font-medium text-pgm-ink hover:text-pgm-green text-left" onClick={(ev) => { ev.stopPropagation(); onOpen(e.id) }}>
-                    {e.name || 'No name given'}
+                    {e.name || (e.anonymised ? 'Details removed' : 'No name given')}
                   </button>
                 </td>
                 <td className="px-4 py-3"><TypeChip type={e.type} /></td>
@@ -291,6 +294,14 @@ function Detail({ id, isAdmin, onClose, onChanged }: { id: string; isAdmin: bool
     await fetchOne(); onChanged()
   }
 
+  async function erase() {
+    if (!window.confirm('Erase this person’s details?\n\nTheir name, email, phone, messages and notes will be removed from every enquiry they’ve made at this club. The enquiries stay as anonymous records so the figures don’t change. This can’t be undone.')) return
+    const res = await fetch(`/api/dashboard/enquiries/${id}/erase`, { method: 'POST' }).then((r) => r.json())
+    if (res.error) { setErr(res.error); return }
+    setMsg(`Details erased from ${res.data.enquiries} ${res.data.enquiries === 1 ? 'enquiry' : 'enquiries'}.`)
+    await fetchOne(); onChanged()
+  }
+
   async function remove() {
     if (!window.confirm('Delete this enquiry permanently? This can’t be undone.')) return
     await fetch(`/api/dashboard/enquiries/${id}`, { method: 'DELETE' })
@@ -308,7 +319,7 @@ function Detail({ id, isAdmin, onClose, onChanged }: { id: string; isAdmin: bool
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <TypeChip type={e.type} />
-                <h2 className="font-serif text-2xl text-pgm-ink font-semibold mt-2 break-words">{e.name || 'No name given'}</h2>
+                <h2 className="font-serif text-2xl text-pgm-ink font-semibold mt-2 break-words">{e.name || (e.anonymised ? 'Details removed' : 'No name given')}</h2>
                 <p className="text-xs text-gray-500 mt-1">
                   Received {new Date(e.receivedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · {SOURCES[e.source] ?? e.source}
                   {e.sourceDetail ? ` (${e.sourceDetail})` : ''}
@@ -318,6 +329,12 @@ function Detail({ id, isAdmin, onClose, onChanged }: { id: string; isAdmin: bool
                 <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
               </button>
             </div>
+
+            {e.anonymised && (
+              <p className="text-sm text-gray-600 bg-pgm-cream rounded-lg px-3 py-2.5">
+                This person’s details have been removed. The enquiry is kept, without them, so the club’s figures stay the same.
+              </p>
+            )}
 
             {/* Contact */}
             <div className="flex flex-wrap gap-2">
@@ -404,7 +421,12 @@ function Detail({ id, isAdmin, onClose, onChanged }: { id: string; isAdmin: bool
             </div>
 
             {isAdmin && (
-              <button type="button" onClick={remove} className="text-xs text-red-600 hover:underline">Delete this enquiry</button>
+              <div className="flex flex-wrap gap-x-5 gap-y-2 pt-4 border-t border-pgm-line">
+                {!e.anonymised && (
+                  <button type="button" onClick={erase} className="text-xs text-red-600 hover:underline">Erase this person’s details</button>
+                )}
+                <button type="button" onClick={remove} className="text-xs text-red-600 hover:underline">Delete this enquiry</button>
+              </div>
             )}
           </div>
         )}
@@ -423,6 +445,7 @@ function describe(ev: any, type: Type): string {
     case 'note': return ev.detail ?? 'Notes updated'
     case 'mailchimp': return ev.detail ?? 'Sent to Mailchimp'
     case 'whatsapp': return ev.detail ?? 'WhatsApp alert sent'
+    case 'anonymised': return ev.detail ?? 'Personal details removed'
     default: return ev.detail ?? ev.kind
   }
 }
@@ -474,4 +497,124 @@ function AddEnquiry({ clientId, onClose, onAdded }: { clientId: string; onClose:
       </form>
     </div>
   )
+}
+
+/** What the enquiries led to: by where they came from, by type and by campaign, plus how quickly they were followed up. */
+function Results({ rows }: { rows: any[] }) {
+  const won = (r: any[]) => r.filter((e) => e.status === 'BOOKED')
+  const value = (r: any[]) => won(r).reduce((s, e) => s + (e.bookedValue ?? 0), 0)
+  const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '—')
+
+  // How far enquiries got. "Reached" counts anything that got to a stage, even if later lost.
+  const steps = [
+    { label: 'Received', n: rows.length },
+    { label: 'Contacted', n: rows.filter((e) => e.reached >= 1).length },
+    { label: 'Tour / viewing booked', n: rows.filter((e) => e.reached >= 2).length },
+    { label: 'Joined / booked', n: rows.filter((e) => e.reached >= 3).length },
+  ]
+  const lost = rows.filter((e) => e.status === 'LOST').length
+
+  // Time from arriving to first being moved on from New
+  const waits = rows.filter((e) => e.firstMovedAt).map((e) => new Date(e.firstMovedAt).getTime() - new Date(e.receivedAt).getTime()).sort((a, b) => a - b)
+  const median = waits.length ? waits[Math.floor(waits.length / 2)] : null
+  const waiting = rows.filter((e) => e.status === 'NEW')
+  const oldestWait = waiting.length ? Math.max(...waiting.map((e) => Date.now() - new Date(e.receivedAt).getTime())) : null
+
+  const group = (key: (e: any) => string | null, label: (k: string) => string) => {
+    const m = new Map<string, any[]>()
+    for (const e of rows) { const k = key(e); if (k) m.set(k, [...(m.get(k) ?? []), e]) }
+    return Array.from(m.entries()).map(([k, r]) => ({ key: k, label: label(k), total: r.length, won: won(r).length, value: value(r) }))
+      .sort((a, b) => b.total - a.total)
+  }
+  const bySource = group((e) => e.source, (k) => SOURCES[k] ?? k)
+  const byType = group((e) => e.type, (k) => typeLabel(k as Type))
+  const byCampaign = group((e) => e.utmCampaign || null, (k) => k)
+  const max = Math.max(1, rows.length)
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <section className="lg:col-span-2 bg-white border border-pgm-line rounded-xl p-5 sm:p-6">
+          <h2 className="font-serif text-xl text-pgm-ink font-semibold">How far enquiries got</h2>
+          <p className="text-xs text-gray-500 mt-1">Each enquiry counts at every stage it reached, even if it was lost later.</p>
+          <ol className="mt-5 space-y-3">
+            {steps.map((s, i) => (
+              <li key={s.label}>
+                <div className="flex justify-between text-sm">
+                  <span className="text-pgm-ink">{s.label}</span>
+                  <span className="tabular-nums text-pgm-ink font-semibold">
+                    {s.n}{i > 0 && <span className="text-gray-400 font-normal"> · {pct(s.n, rows.length)}</span>}
+                  </span>
+                </div>
+                <div className="h-2 bg-pgm-cream rounded-full mt-1.5 overflow-hidden" aria-hidden>
+                  <div className="h-full rounded-full" style={{ width: `${(s.n / max) * 100}%`, background: STAGES[i].dot }} />
+                </div>
+              </li>
+            ))}
+          </ol>
+          <p className="text-xs text-gray-500 mt-4">{lost} lost{value(rows) ? ` · ${gbp(value(rows))} won in value` : ''}</p>
+        </section>
+
+        <section className="bg-white border border-pgm-line rounded-xl p-5 sm:p-6">
+          <h2 className="font-serif text-xl text-pgm-ink font-semibold">Speed of reply</h2>
+          <p className="text-xs text-gray-500 mt-1">From an enquiry arriving to it being moved on from New.</p>
+          <p className="text-[34px] leading-none font-semibold text-pgm-ink tabular-nums mt-5">{median === null ? '—' : duration(median)}</p>
+          <p className="text-xs text-gray-500 mt-1.5">{median === null ? 'Shows once enquiries are followed up' : `typical time, across ${waits.length} ${waits.length === 1 ? 'enquiry' : 'enquiries'}`}</p>
+          <div className="mt-5 pt-4 border-t border-pgm-line text-sm text-pgm-ink">
+            {waiting.length
+              ? <>{waiting.length} still New, the oldest waiting <strong>{duration(oldestWait!)}</strong>.</>
+              : 'Nothing waiting for a first reply.'}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ResultTable title="Where enquiries came from" rows={bySource} />
+        <ResultTable title="What they were about" rows={byType} />
+      </div>
+      <ResultTable title="Campaigns" rows={byCampaign}
+        empty="No enquiries carried a campaign tag. Links in emails and ads with utm_campaign show up here." />
+    </div>
+  )
+}
+
+function ResultTable({ title, rows, empty }: { title: string; rows: { key: string; label: string; total: number; won: number; value: number }[]; empty?: string }) {
+  return (
+    <section className="bg-white border border-pgm-line rounded-xl p-5 sm:p-6">
+      <h2 className="font-serif text-xl text-pgm-ink font-semibold">{title}</h2>
+      {rows.length === 0 ? <p className="text-sm text-gray-500 mt-3">{empty ?? 'Nothing yet.'}</p> : (
+        <div className="overflow-x-auto -mx-1 mt-3">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-gray-500">
+                <th className="font-medium py-2 px-1"><span className="sr-only">Name</span></th>
+                <th className="font-medium py-2 px-1 text-right">Enquiries</th>
+                <th className="font-medium py-2 px-1 text-right">Joined / booked</th>
+                <th className="font-medium py-2 px-1 text-right">Rate</th>
+                <th className="font-medium py-2 px-1 text-right">Value</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-pgm-line">
+              {rows.map((r) => (
+                <tr key={r.key}>
+                  <td className="py-2.5 px-1 text-pgm-ink">{r.label}</td>
+                  <td className="py-2.5 px-1 text-right tabular-nums">{r.total}</td>
+                  <td className="py-2.5 px-1 text-right tabular-nums">{r.won}</td>
+                  <td className="py-2.5 px-1 text-right tabular-nums text-gray-500">{r.total ? `${Math.round((r.won / r.total) * 100)}%` : '—'}</td>
+                  <td className="py-2.5 px-1 text-right tabular-nums">{r.value ? gbp(r.value) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function duration(ms: number) {
+  const h = ms / 3_600_000
+  if (h < 1) return `${Math.max(1, Math.round(ms / 60_000))} min`
+  if (h < 48) return `${Math.round(h)} ${Math.round(h) === 1 ? 'hour' : 'hours'}`
+  return `${Math.round(h / 24)} days`
 }
