@@ -61,6 +61,8 @@ export interface NewEnquiry {
   /** Opt-in to marketing emails, with the wording they agreed to */
   marketingConsent?: boolean
   consentWording?: string | null
+  /** Ignore a repeat from the same person, of the same type, within this many minutes (e.g. a form sent twice) */
+  dedupeMinutes?: number
 }
 
 const clip = (v: string | null | undefined, n: number) => (v && v.trim() ? v.trim().slice(0, n) : null)
@@ -111,6 +113,12 @@ export async function createEnquiry(input: NewEnquiry, actor: Actor = SYSTEM) {
   const type = input.type ?? inferType(input.category, input.message, input.sourceDetail)
   return prisma.$transaction(async (tx) => {
     const contact = await upsertContact(tx, input)
+    if (contact && input.dedupeMinutes) {
+      const recent = await tx.enquiry.findFirst({
+        where: { contactId: contact.id, type, receivedAt: { gte: new Date(Date.now() - input.dedupeMinutes * 60_000) } },
+      })
+      if (recent) return recent
+    }
     const enquiry = await tx.enquiry.create({
       data: {
         clientId: input.clientId,

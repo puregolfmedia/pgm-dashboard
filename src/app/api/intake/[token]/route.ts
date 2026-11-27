@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { flatten, parseEnquiry } from '@/lib/intake'
 import { createEnquiry, parseType } from '@/lib/crm'
 import { piiReady } from '@/lib/pii'
+import { allowRequest, requesterKey } from '@/lib/rateLimit'
 
 // Public endpoint that website forms post enquiries to:
 //   POST /api/intake/<club's secret token>?category=Christmas%20party&type=FUNCTION
@@ -28,6 +29,11 @@ export async function POST(request: Request, { params }: { params: { token: stri
     ? await prisma.client.findUnique({ where: { intakeToken: params.token }, select: { id: true } })
     : null
   if (!client) return NextResponse.json({ ok: false, error: 'Unknown form address' }, { status: 404, headers: CORS })
+
+  // At most 30 enquiries an hour from one connection to one club's address
+  if (!(await allowRequest(requesterKey(request, `intake:${client.id}`), 30, 60 * 60 * 1000))) {
+    return NextResponse.json({ ok: false, error: 'Too many enquiries. Try again later.' }, { status: 429, headers: CORS })
+  }
 
   const raw = await request.text()
   if (raw.length > MAX_BODY) return NextResponse.json({ ok: false, error: 'Too large' }, { status: 413, headers: CORS })
@@ -70,12 +76,19 @@ export async function POST(request: Request, { params }: { params: { token: stri
     category,
     type: parseType(query.get('type')?.toUpperCase()) ?? parseType(fields.enquiry_type?.toUpperCase()),
     source: 'website_form',
-    sourceDetail: fields.form_name || query.get('form') || category,
+    sourceDetail: fields.form_name || query.get('form') || category || pagePath(fields.page_url),
     utmSource: fields.utm_source || query.get('utm_source'),
     utmMedium: fields.utm_medium || query.get('utm_medium'),
     utmCampaign: fields.utm_campaign || query.get('utm_campaign'),
     marketingConsent: ticked(fields.marketing_consent ?? fields.consent),
     consentWording: fields.consent_wording,
+    // A website form can fire twice (double click, or the page re-sent after a failed check)
+    dedupeMinutes: 10,
   })
   return done()
+}
+
+/** "https://www.club.co.uk/about-us/weddings/" → "/about-us/weddings/" */
+function pagePath(url?: string) {
+  try { return url ? new URL(url).pathname.slice(0, 200) : null } catch { return null }
 }

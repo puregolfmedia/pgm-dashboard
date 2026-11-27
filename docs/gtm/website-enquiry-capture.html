@@ -1,0 +1,86 @@
+<!--
+  PGM dashboard: website enquiry capture (Google Tag Manager → Custom HTML tag)
+
+  Copies each enquiry sent from the club's own website forms to the club's
+  Enquiries board on the dashboard. The club's form is untouched: it still
+  sends and emails exactly as before; this only sends a copy alongside it.
+
+  Setup: paste the club's intake address (Admin → club → "Website forms") as
+  INTAKE below. Fire on "All Pages" (or "DOM Ready"). Written in ES5 because
+  GTM refuses newer JavaScript in Custom HTML tags.
+-->
+<script>
+(function () {
+  var INTAKE = 'PASTE_THE_INTAKE_ADDRESS_HERE';
+
+  // Which kind of enquiry each page's form is. Pages not listed are worked out
+  // from what the person wrote (e.g. "membership", "wedding").
+  var PAGE_TYPES = [
+    [/join-club|membership/i, 'MEMBERSHIP'],
+    [/wedding/i, 'WEDDING'],
+    [/societ/i, 'SOCIETY'],
+    [/club-events|christmas|festive|function|part(y|ies)|private-hire|afternoon-tea/i, 'FUNCTION'],
+    [/health-wellness|golf-tuition|lesson/i, 'GENERAL']
+  ];
+
+  // Club website field names → the names the dashboard expects
+  var RENAME = {
+    qs_fname: 'first_name', qs_lname: 'last_name', qs_phone: 'phone', qs_email: 'email', qs_msg_text: 'message',
+    contactname: 'name', contactemail: 'email', contactsubject: 'subject', contacttext: 'message'
+  };
+  var SKIP_TYPES = { password: 1, hidden: 1, file: 1, submit: 1, reset: 1, button: 1, image: 1 };
+
+  // Remember campaign tags from the page someone lands on, for the enquiry they send later
+  try {
+    var q = new URLSearchParams(window.location.search);
+    ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) {
+      if (q.get(k)) sessionStorage.setItem('pgm_' + k, q.get(k));
+    });
+  } catch (e) {}
+
+  document.addEventListener('submit', function (event) {
+    try {
+      var form = event.target;
+      if (!form || form.tagName !== 'FORM') return;
+      if (form.querySelector('input[type=password]')) return; // sign-in forms
+      var email = form.querySelector('input[type=email], input[name*=email]');
+      if (!email || !email.value) return; // not an enquiry form
+      // Forms with a "not a robot" box: only once it has been ticked
+      var captcha = form.querySelector('[name=g-recaptcha-response]');
+      if (captcha && !captcha.value) return;
+
+      var data = new URLSearchParams();
+      for (var i = 0; i < form.elements.length; i++) {
+        var el = form.elements[i];
+        if (!el.name || SKIP_TYPES[el.type] || el.name.charAt(0) === '_' || el.name.indexOf('g-recaptcha') === 0) continue;
+        if ((el.type === 'checkbox' || el.type === 'radio') && !el.checked) continue;
+        if (!el.value || !String(el.value).trim()) continue;
+        data.append(RENAME[el.name] || el.name, String(el.value).trim().slice(0, 4000));
+      }
+
+      var path = window.location.pathname;
+      for (var t = 0; t < PAGE_TYPES.length; t++) {
+        if (PAGE_TYPES[t][0].test(path)) { data.set('enquiry_type', PAGE_TYPES[t][1]); break; }
+      }
+      var heading = document.querySelector('h1');
+      data.set('form_name', 'Website: ' + ((heading && heading.textContent.trim()) || document.title).slice(0, 120));
+      data.set('page_url', window.location.href.split('?')[0]);
+      ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) {
+        var v = null;
+        try { v = sessionStorage.getItem('pgm_' + k); } catch (e) {}
+        if (v) data.set(k, v);
+      });
+
+      // sendBeacon still delivers when the page moves on to the club's thank-you page
+      var sent = navigator.sendBeacon && navigator.sendBeacon(INTAKE, data);
+      if (!sent) fetch(INTAKE, { method: 'POST', body: data, keepalive: true, mode: 'no-cors' });
+
+      // Also tell GTM, so GA4 can count website enquiries by type
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ event: 'enquiry_submit', enquiry_type: data.get('enquiry_type') || 'GENERAL', enquiry_page: path });
+    } catch (e) {
+      // Never get in the way of the club's own form
+    }
+  }, true);
+})();
+</script>
